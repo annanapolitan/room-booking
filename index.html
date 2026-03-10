@@ -159,10 +159,7 @@ function App() {
     if (timeToMin(form.end) <= timeToMin(form.start)) return setFormErr("End time must be after start time.");
     const recurringId = form.recurring ? `rec_${Date.now()}` : null;
     const dates = form.recurring ? Array.from({ length: form.weeks }, (_, i) => addWeeks(selectedDate, i)) : [selectedDate];
-    for (const date of dates) {
-      const existing = bookings.filter(b => b.roomId === modal.roomId && b.date === date);
-      if (existing.some(b => overlaps(form, b))) return setFormErr(`Conflict on ${date} — another booking overlaps.`);
-    }
+
     const newBookings = dates.map((date, i) => ({ id: Date.now() + i, roomId: modal.roomId, date, name: form.name, title: form.title, start: form.start, end: form.end, recurringId }));
     saveBookings([...bookings, ...newBookings]);
     setModal(null);
