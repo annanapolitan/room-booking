@@ -1,17 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RoomBook</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-  <style>* { margin: 0; padding: 0; box-sizing: border-box; } body { font-family: 'Inter', sans-serif; }</style>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="text/babel">
+import { useState, useEffect } from "react";
+
 const ROOMS = [
   { id: "small-conf", name: "Small Conference", capacity: 4, amenities: ["TV", "Whiteboard", "Video Call"], color: "#6366f1", icon: "🪑" },
   { id: "large-conf", name: "Large Conference", capacity: 10, amenities: ["Projector", "Whiteboard", "Video Call", "Phone"], color: "#0ea5e9", icon: "🏛️" },
@@ -32,26 +20,40 @@ const HOURS = (() => {
   return slots;
 })();
 
-const STORAGE_KEY = "room_bookings_v2";
 function todayStr() { return new Date().toISOString().split("T")[0]; }
 function timeToMin(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
 function overlaps(a, b) { return timeToMin(a.start) < timeToMin(b.end) && timeToMin(a.end) > timeToMin(b.start); }
+function addWeeks(dateStr, n) {
+  const d = new Date(dateStr + "T12:00:00");
+  d.setDate(d.getDate() + n * 7);
+  return d.toISOString().split("T")[0];
+}
 
-function App() {
-  const [bookings, setBookings] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
-  });
-  const [view, setView] = React.useState("grid");
-  const [selectedDate, setSelectedDate] = React.useState(todayStr());
-  const [modal, setModal] = React.useState(null);
-  const [form, setForm] = React.useState({ name: "", title: "", start: "09:30", end: "10:30" });
-  const [formErr, setFormErr] = React.useState("");
-  const [toast, setToast] = React.useState(null);
-  const [cancelTarget, setCancelTarget] = React.useState(null);
+const STORAGE_KEY = "room_bookings_v3";
 
-  function saveBookings(next) {
+export default function App() {
+  const [bookings, setBookings] = useState([]);
+  const [view, setView] = useState("grid");
+  const [selectedDate, setSelectedDate] = useState(todayStr());
+  const [modal, setModal] = useState(null);
+  const [form, setForm] = useState({ name: "", title: "", start: "09:30", end: "10:30", recurring: false, weeks: 4 });
+  const [formErr, setFormErr] = useState("");
+  const [toast, setToast] = useState(null);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelMode, setCancelMode] = useState("single"); // single | all
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await window.storage.get(STORAGE_KEY);
+        if (res?.value) setBookings(JSON.parse(res.value));
+      } catch {}
+    })();
+  }, []);
+
+  async function saveBookings(next) {
     setBookings(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    try { await window.storage.set(STORAGE_KEY, JSON.stringify(next)); } catch {}
   }
 
   function dayBookings(roomId) {
@@ -67,7 +69,7 @@ function App() {
     const start = startOverride || "09:30";
     const startIdx = HOURS.findIndex(h => h.value === start);
     const end = HOURS[Math.min(startIdx + 2, HOURS.length - 1)].value;
-    setForm({ name: "", title: "", start, end });
+    setForm({ name: "", title: "", start, end, recurring: false, weeks: 4 });
     setFormErr("");
     setModal({ roomId });
   }
@@ -76,14 +78,46 @@ function App() {
     if (!form.name.trim()) return setFormErr("Please enter your name.");
     if (!form.title.trim()) return setFormErr("Please enter a meeting title.");
     if (timeToMin(form.end) <= timeToMin(form.start)) return setFormErr("End time must be after start time.");
-    if (dayBookings(modal.roomId).some(b => overlaps(form, b))) return setFormErr("This slot is already booked. Pick another time.");
-    saveBookings([...bookings, { id: Date.now(), roomId: modal.roomId, date: selectedDate, ...form }]);
+    
+    const recurringId = form.recurring ? `rec_${Date.now()}` : null;
+    const dates = form.recurring
+      ? Array.from({ length: form.weeks }, (_, i) => addWeeks(selectedDate, i))
+      : [selectedDate];
+
+    for (const date of dates) {
+      const existing = bookings.filter(b => b.roomId === modal.roomId && b.date === date);
+      if (existing.some(b => overlaps(form, b))) return setFormErr(`Conflict on ${date} — another booking overlaps.`);
+    }
+
+    const newBookings = dates.map((date, i) => ({
+      id: Date.now() + i,
+      roomId: modal.roomId,
+      date,
+      name: form.name,
+      title: form.title,
+      start: form.start,
+      end: form.end,
+      recurringId,
+    }));
+
+    saveBookings([...bookings, ...newBookings]);
     setModal(null);
-    showToast("Room booked successfully!");
+    showToast(form.recurring ? `Booked ${form.weeks} weekly occurrences! 🔁` : "Room booked successfully!");
+  }
+
+  function openCancel(b) {
+    setCancelTarget(b);
+    setCancelMode("single");
   }
 
   function cancelBooking() {
-    saveBookings(bookings.filter(b => b.id !== cancelTarget.id));
+    let next;
+    if (cancelMode === "all" && cancelTarget.recurringId) {
+      next = bookings.filter(b => b.recurringId !== cancelTarget.recurringId);
+    } else {
+      next = bookings.filter(b => b.id !== cancelTarget.id);
+    }
+    saveBookings(next);
     setCancelTarget(null);
     showToast("Booking cancelled.", "info");
   }
@@ -98,7 +132,7 @@ function App() {
   const room = modal ? ROOMS.find(r => r.id === modal.roomId) : null;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f8f9fc", fontFamily: "sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#f8f9fc", fontFamily: "'Inter', sans-serif" }}>
       <div style={{ background: "#111827", padding: "18px 28px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 32, height: 32, background: "#6366f1", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🏢</div>
@@ -154,12 +188,15 @@ function App() {
                     {bks.length === 0
                       ? <div style={{ color: "#9ca3af", fontSize: 13, padding: "8px 0" }}>No bookings yet</div>
                       : bks.map(b => (
-                        <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: "#f9fafb", borderRadius: 8, marginBottom: 6 }}>
+                        <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "#f9fafb", borderRadius: 8, marginBottom: 6, border: "1px solid #f3f4f6" }}>
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>{b.title}</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", display: "flex", alignItems: "center", gap: 5 }}>
+                              {b.title}
+                              {b.recurringId && <span style={{ fontSize: 10, background: "#e0e7ff", color: "#6366f1", borderRadius: 10, padding: "1px 6px" }}>🔁 Weekly</span>}
+                            </div>
                             <div style={{ fontSize: 12, color: "#9ca3af" }}>{b.name} · {b.start}–{b.end}</div>
                           </div>
-                          <button onClick={() => setCancelTarget(b)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: 16, padding: 2 }}>✕</button>
+                          <button onClick={() => openCancel(b)} style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, cursor: "pointer", color: "#ef4444", fontSize: 12, padding: "4px 8px", fontWeight: 600 }}>Delete</button>
                         </div>
                       ))
                     }
@@ -189,9 +226,12 @@ function App() {
                   return (
                     <div key={r.id} style={{ padding: "3px 6px", background: i % 2 === 0 ? "#fff" : "#fafafa", borderLeft: "1px solid #f3f4f6", minHeight: 36 }}>
                       {bk && (
-                        <div style={{ background: r.color, color: "#fff", borderRadius: 6, padding: "3px 7px", fontSize: 11, fontWeight: 600 }}>
-                          <div>{bk.title}</div>
-                          <div style={{ opacity: 0.8 }}>{bk.name} · –{bk.end}</div>
+                        <div style={{ background: r.color, color: "#fff", borderRadius: 6, padding: "3px 7px", fontSize: 11, fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div>
+                            <div>{bk.title} {bk.recurringId && "🔁"}</div>
+                            <div style={{ opacity: 0.8 }}>{bk.name} · –{bk.end}</div>
+                          </div>
+                          <button onClick={() => openCancel(bk)} style={{ background: "rgba(0,0,0,0.2)", border: "none", borderRadius: 4, color: "#fff", cursor: "pointer", fontSize: 10, padding: "2px 5px" }}>✕</button>
                         </div>
                       )}
                       {isBusy && !bk && <div style={{ height: "100%", background: `${r.color}20`, borderLeft: `3px solid ${r.color}55` }} />}
@@ -207,6 +247,7 @@ function App() {
         )}
       </div>
 
+      {/* Booking Modal */}
       {modal && room && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
           <div style={{ background: "#fff", borderRadius: 20, width: 420, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
@@ -216,7 +257,7 @@ function App() {
               <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>👥 {room.capacity} {room.capacity === 1 ? "person" : "people"} · {room.amenities.join(", ")}</div>
             </div>
             <div style={{ padding: "24px 28px" }}>
-              {[["Your Name", "name", "e.g. Anna Smith"], ["Meeting Title", "title", "e.g. Product Sync"]].map(([label, key, ph]) => (
+              {[["Your Name", "name", "e.g. Anna Smith"], ["Meeting Title", "title", "e.g. Weekly Standup"]].map(([label, key, ph]) => (
                 <div key={key} style={{ marginBottom: 16 }}>
                   <label style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#374151", marginBottom: 6 }}>{label}</label>
                   <input type="text" placeholder={ph} value={form[key]}
@@ -235,27 +276,64 @@ function App() {
                   </div>
                 ))}
               </div>
+
+              {/* Recurring toggle */}
+              <div style={{ background: "#f9fafb", borderRadius: 12, padding: "14px 16px", marginBottom: 16, border: "1.5px solid #e5e7eb" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                  <input type="checkbox" checked={form.recurring} onChange={e => setForm(f => ({ ...f, recurring: e.target.checked }))}
+                    style={{ width: 16, height: 16, cursor: "pointer" }} />
+                  <span style={{ fontWeight: 600, fontSize: 13, color: "#374151" }}>🔁 Repeat weekly</span>
+                </label>
+                {form.recurring && (
+                  <div style={{ marginTop: 12 }}>
+                    <label style={{ display: "block", fontWeight: 600, fontSize: 12, color: "#6b7280", marginBottom: 6 }}>Number of weeks</label>
+                    <select value={form.weeks} onChange={e => setForm(f => ({ ...f, weeks: Number(e.target.value) }))}
+                      style={{ border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "8px 12px", fontSize: 13, width: "100%" }}>
+                      {[2,4,6,8,12,16,26,52].map(w => <option key={w} value={w}>{w} weeks (~{Math.round(w/4.3)} months)</option>)}
+                    </select>
+                    <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 6 }}>
+                      Booking every week from {selectedDate} for {form.weeks} weeks
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {formErr && <div style={{ color: "#ef4444", fontSize: 13, marginBottom: 12, background: "#fef2f2", padding: "8px 12px", borderRadius: 8 }}>⚠️ {formErr}</div>}
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setModal(null)} style={{ flex: 1, padding: "12px", border: "1.5px solid #e5e7eb", borderRadius: 10, background: "#fff", fontWeight: 600, fontSize: 14, cursor: "pointer", color: "#374151" }}>Cancel</button>
-                <button onClick={submitBooking} style={{ flex: 2, padding: "12px", border: "none", borderRadius: 10, background: room.color, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Confirm Booking</button>
+                <button onClick={submitBooking} style={{ flex: 2, padding: "12px", border: "none", borderRadius: 10, background: room.color, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                  {form.recurring ? `Book ${form.weeks} Weeks 🔁` : "Confirm Booking"}
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* Cancel Modal */}
       {cancelTarget && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
-          <div style={{ background: "#fff", borderRadius: 16, padding: 28, width: 340, textAlign: "center" }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 28, width: 360, textAlign: "center" }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>🗑️</div>
-            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Cancel Booking?</div>
+            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Delete Booking?</div>
             <div style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}>
               <strong>{cancelTarget.title}</strong> by {cancelTarget.name}<br />{cancelTarget.start}–{cancelTarget.end}
             </div>
+            {cancelTarget.recurringId && (
+              <div style={{ marginBottom: 16, textAlign: "left" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, border: `2px solid ${cancelMode === "single" ? "#6366f1" : "#e5e7eb"}`, marginBottom: 8, cursor: "pointer" }}>
+                  <input type="radio" checked={cancelMode === "single"} onChange={() => setCancelMode("single")} />
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>Just this occurrence</span>
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, border: `2px solid ${cancelMode === "all" ? "#ef4444" : "#e5e7eb"}`, cursor: "pointer" }}>
+                  <input type="radio" checked={cancelMode === "all"} onChange={() => setCancelMode("all")} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#ef4444" }}>All recurring bookings 🔁</span>
+                </label>
+              </div>
+            )}
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setCancelTarget(null)} style={{ flex: 1, padding: "11px", border: "1.5px solid #e5e7eb", borderRadius: 10, fontWeight: 600, cursor: "pointer", background: "#fff" }}>Keep</button>
-              <button onClick={cancelBooking} style={{ flex: 1, padding: "11px", border: "none", borderRadius: 10, fontWeight: 700, cursor: "pointer", background: "#ef4444", color: "#fff" }}>Cancel It</button>
+              <button onClick={cancelBooking} style={{ flex: 1, padding: "11px", border: "none", borderRadius: 10, fontWeight: 700, cursor: "pointer", background: "#ef4444", color: "#fff" }}>Delete</button>
             </div>
           </div>
         </div>
@@ -269,8 +347,3 @@ function App() {
     </div>
   );
 }
-
-ReactDOM.render(<App />, document.getElementById("root"));
-  </script>
-</body>
-</html>
