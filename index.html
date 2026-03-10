@@ -218,11 +218,18 @@ function App() {
       const res  = await calFetch(url, { _token: tok });
       if (!res) { fetchingRef.current = false; setCalLoading(false); return; }
       const data = await res.json();
+      if (!res.ok) {
+        showToast(`Calendar error ${res.status}: ${data?.error?.message || "check calendar access"}`, "error");
+        fetchingRef.current = false; setCalLoading(false); return;
+      }
       const parsed = (data.items || [])
         .filter(e => e.summary && e.start?.dateTime)
         .map(parseCalendarEvent)
         .filter(b => b.roomId);
       setCalendarEvents(parsed);
+      if (parsed.length === 0 && (data.items || []).length > 0) {
+        showToast(`Fetched ${data.items.length} calendar events but none matched a room — check event format.`, "info");
+      }
     } catch {
       showToast("Failed to load bookings. Check your connection.", "info");
     }
