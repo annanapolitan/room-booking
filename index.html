@@ -1,5 +1,17 @@
-import { useState, useEffect } from "react";
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RoomBook</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>* { margin: 0; padding: 0; box-sizing: border-box; } body { font-family: sans-serif; }</style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
 const ROOMS = [
   { id: "small-conf", name: "Small Conference", capacity: 4, amenities: ["TV", "Whiteboard", "Video Call"], color: "#6366f1", icon: "🪑" },
   { id: "large-conf", name: "Large Conference", capacity: 10, amenities: ["Projector", "Whiteboard", "Video Call", "Phone"], color: "#0ea5e9", icon: "🏛️" },
@@ -31,29 +43,22 @@ function addWeeks(dateStr, n) {
 
 const STORAGE_KEY = "room_bookings_v3";
 
-export default function App() {
-  const [bookings, setBookings] = useState([]);
-  const [view, setView] = useState("grid");
-  const [selectedDate, setSelectedDate] = useState(todayStr());
-  const [modal, setModal] = useState(null);
-  const [form, setForm] = useState({ name: "", title: "", start: "09:30", end: "10:30", recurring: false, weeks: 4 });
-  const [formErr, setFormErr] = useState("");
-  const [toast, setToast] = useState(null);
-  const [cancelTarget, setCancelTarget] = useState(null);
-  const [cancelMode, setCancelMode] = useState("single"); // single | all
+function App() {
+  const [bookings, setBookings] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
+  });
+  const [view, setView] = React.useState("grid");
+  const [selectedDate, setSelectedDate] = React.useState(todayStr());
+  const [modal, setModal] = React.useState(null);
+  const [form, setForm] = React.useState({ name: "", title: "", start: "09:30", end: "10:30", recurring: false, weeks: 4 });
+  const [formErr, setFormErr] = React.useState("");
+  const [toast, setToast] = React.useState(null);
+  const [cancelTarget, setCancelTarget] = React.useState(null);
+  const [cancelMode, setCancelMode] = React.useState("single");
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await window.storage.get(STORAGE_KEY);
-        if (res?.value) setBookings(JSON.parse(res.value));
-      } catch {}
-    })();
-  }, []);
-
-  async function saveBookings(next) {
+  function saveBookings(next) {
     setBookings(next);
-    try { await window.storage.set(STORAGE_KEY, JSON.stringify(next)); } catch {}
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   }
 
   function dayBookings(roomId) {
@@ -78,48 +83,27 @@ export default function App() {
     if (!form.name.trim()) return setFormErr("Please enter your name.");
     if (!form.title.trim()) return setFormErr("Please enter a meeting title.");
     if (timeToMin(form.end) <= timeToMin(form.start)) return setFormErr("End time must be after start time.");
-    
     const recurringId = form.recurring ? `rec_${Date.now()}` : null;
-    const dates = form.recurring
-      ? Array.from({ length: form.weeks }, (_, i) => addWeeks(selectedDate, i))
-      : [selectedDate];
-
+    const dates = form.recurring ? Array.from({ length: form.weeks }, (_, i) => addWeeks(selectedDate, i)) : [selectedDate];
     for (const date of dates) {
       const existing = bookings.filter(b => b.roomId === modal.roomId && b.date === date);
       if (existing.some(b => overlaps(form, b))) return setFormErr(`Conflict on ${date} — another booking overlaps.`);
     }
-
-    const newBookings = dates.map((date, i) => ({
-      id: Date.now() + i,
-      roomId: modal.roomId,
-      date,
-      name: form.name,
-      title: form.title,
-      start: form.start,
-      end: form.end,
-      recurringId,
-    }));
-
+    const newBookings = dates.map((date, i) => ({ id: Date.now() + i, roomId: modal.roomId, date, name: form.name, title: form.title, start: form.start, end: form.end, recurringId }));
     saveBookings([...bookings, ...newBookings]);
     setModal(null);
     showToast(form.recurring ? `Booked ${form.weeks} weekly occurrences! 🔁` : "Room booked successfully!");
   }
 
-  function openCancel(b) {
-    setCancelTarget(b);
-    setCancelMode("single");
-  }
+  function openCancel(b) { setCancelTarget(b); setCancelMode("single"); }
 
   function cancelBooking() {
-    let next;
-    if (cancelMode === "all" && cancelTarget.recurringId) {
-      next = bookings.filter(b => b.recurringId !== cancelTarget.recurringId);
-    } else {
-      next = bookings.filter(b => b.id !== cancelTarget.id);
-    }
+    const next = cancelMode === "all" && cancelTarget.recurringId
+      ? bookings.filter(b => b.recurringId !== cancelTarget.recurringId)
+      : bookings.filter(b => b.id !== cancelTarget.id);
     saveBookings(next);
     setCancelTarget(null);
-    showToast("Booking cancelled.", "info");
+    showToast("Booking deleted.", "info");
   }
 
   function isAvailableNow(roomId) {
@@ -132,111 +116,103 @@ export default function App() {
   const room = modal ? ROOMS.find(r => r.id === modal.roomId) : null;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f8f9fc", fontFamily: "'Inter', sans-serif" }}>
-      <div style={{ background: "#111827", padding: "18px 28px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, background: "#6366f1", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🏢</div>
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 18 }}>RoomBook</span>
+    <div style={{minHeight:"100vh",background:"#f8f9fc",fontFamily:"sans-serif"}}>
+      <div style={{background:"#111827",padding:"18px 28px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:32,height:32,background:"#6366f1",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🏢</div>
+          <span style={{color:"#fff",fontWeight:700,fontSize:18}}>RoomBook</span>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{display:"flex",gap:8}}>
           {["grid","timeline"].map(v => (
-            <button key={v} onClick={() => setView(v)} style={{ padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, background: view === v ? "#6366f1" : "#1f2937", color: view === v ? "#fff" : "#9ca3af" }}>
-              {v === "grid" ? "🃏 Cards" : "📅 Timeline"}
+            <button key={v} onClick={() => setView(v)} style={{padding:"6px 14px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:view===v?"#6366f1":"#1f2937",color:view===v?"#fff":"#9ca3af"}}>
+              {v==="grid"?"🃏 Cards":"📅 Timeline"}
             </button>
           ))}
         </div>
       </div>
 
-      <div style={{ background: "#fff", borderBottom: "1px solid #e5e7eb", padding: "14px 28px", display: "flex", alignItems: "center", gap: 16 }}>
-        <span style={{ fontWeight: 600, color: "#374151", fontSize: 14 }}>📆 Date</span>
-        <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-          style={{ border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "6px 12px", fontSize: 14, color: "#111827", cursor: "pointer" }} />
-        <button onClick={() => setSelectedDate(todayStr())}
-          style={{ background: "#f3f4f6", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 600, color: "#6366f1", cursor: "pointer" }}>Today</button>
-        <span style={{ marginLeft: "auto", color: "#9ca3af", fontSize: 13 }}>
-          {bookings.filter(b => b.date === selectedDate).length} booking(s) on this day
-        </span>
+      <div style={{background:"#fff",borderBottom:"1px solid #e5e7eb",padding:"14px 28px",display:"flex",alignItems:"center",gap:16}}>
+        <span style={{fontWeight:600,color:"#374151",fontSize:14}}>📆 Date</span>
+        <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{border:"1.5px solid #e5e7eb",borderRadius:8,padding:"6px 12px",fontSize:14,color:"#111827",cursor:"pointer"}} />
+        <button onClick={() => setSelectedDate(todayStr())} style={{background:"#f3f4f6",border:"none",borderRadius:8,padding:"6px 14px",fontSize:13,fontWeight:600,color:"#6366f1",cursor:"pointer"}}>Today</button>
+        <span style={{marginLeft:"auto",color:"#9ca3af",fontSize:13}}>{bookings.filter(b => b.date === selectedDate).length} booking(s) on this day</span>
       </div>
 
-      <div style={{ padding: "28px" }}>
+      <div style={{padding:"28px"}}>
         {view === "grid" ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))",gap:20}}>
             {ROOMS.map(r => {
               const avail = isAvailableNow(r.id);
               const bks = dayBookings(r.id).sort((a,b) => a.start.localeCompare(b.start));
               return (
-                <div key={r.id} style={{ background: "#fff", borderRadius: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.08)", overflow: "hidden", border: "1px solid #e5e7eb" }}>
-                  <div style={{ background: r.color, padding: "22px 22px 18px", color: "#fff" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div key={r.id} style={{background:"#fff",borderRadius:16,boxShadow:"0 1px 4px rgba(0,0,0,0.08)",overflow:"hidden",border:"1px solid #e5e7eb"}}>
+                  <div style={{background:r.color,padding:"22px 22px 18px",color:"#fff"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                       <div>
-                        <div style={{ fontSize: 22, marginBottom: 4 }}>{r.icon}</div>
-                        <div style={{ fontSize: 18, fontWeight: 700 }}>{r.name}</div>
-                        <div style={{ fontSize: 13, opacity: 0.85, marginTop: 2 }}>👥 Up to {r.capacity} {r.capacity === 1 ? "person" : "people"}</div>
+                        <div style={{fontSize:22,marginBottom:4}}>{r.icon}</div>
+                        <div style={{fontSize:18,fontWeight:700}}>{r.name}</div>
+                        <div style={{fontSize:13,opacity:0.85,marginTop:2}}>👥 Up to {r.capacity} {r.capacity===1?"person":"people"}</div>
                       </div>
-                      <span style={{ background: avail ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.25)", borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 600 }}>
-                        {avail ? "✅ Free" : "🔴 Busy"}
-                      </span>
+                      <span style={{background:avail?"rgba(255,255,255,0.25)":"rgba(0,0,0,0.25)",borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:600}}>{avail?"✅ Free":"🔴 Busy"}</span>
                     </div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12 }}>
-                      {r.amenities.map(a => (
-                        <span key={a} style={{ background: "rgba(255,255,255,0.2)", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 500 }}>{a}</span>
-                      ))}
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:12}}>
+                      {r.amenities.map(a => <span key={a} style={{background:"rgba(255,255,255,0.2)",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{a}</span>)}
                     </div>
                   </div>
-                  <div style={{ padding: "16px 22px" }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", marginBottom: 8 }}>SCHEDULE · 9:30 AM – 6:00 PM</div>
+                  <div style={{padding:"16px 22px"}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:8}}>SCHEDULE · 9:30 AM – 6:00 PM</div>
                     {bks.length === 0
-                      ? <div style={{ color: "#9ca3af", fontSize: 13, padding: "8px 0" }}>No bookings yet</div>
+                      ? <div style={{color:"#9ca3af",fontSize:13,padding:"8px 0"}}>No bookings yet</div>
                       : bks.map(b => (
-                        <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "#f9fafb", borderRadius: 8, marginBottom: 6, border: "1px solid #f3f4f6" }}>
+                        <div key={b.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#f9fafb",borderRadius:8,marginBottom:6,border:"1px solid #f3f4f6"}}>
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", display: "flex", alignItems: "center", gap: 5 }}>
+                            <div style={{fontSize:13,fontWeight:600,color:"#111827",display:"flex",alignItems:"center",gap:5}}>
                               {b.title}
-                              {b.recurringId && <span style={{ fontSize: 10, background: "#e0e7ff", color: "#6366f1", borderRadius: 10, padding: "1px 6px" }}>🔁 Weekly</span>}
+                              {b.recurringId && <span style={{fontSize:10,background:"#e0e7ff",color:"#6366f1",borderRadius:10,padding:"1px 6px"}}>🔁 Weekly</span>}
                             </div>
-                            <div style={{ fontSize: 12, color: "#9ca3af" }}>{b.name} · {b.start}–{b.end}</div>
+                            <div style={{fontSize:12,color:"#9ca3af"}}>{b.name} · {b.start}–{b.end}</div>
                           </div>
-                          <button onClick={() => openCancel(b)} style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, cursor: "pointer", color: "#ef4444", fontSize: 12, padding: "4px 8px", fontWeight: 600 }}>Delete</button>
+                          <button onClick={() => openCancel(b)} style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:6,cursor:"pointer",color:"#ef4444",fontSize:12,padding:"4px 8px",fontWeight:600}}>Delete</button>
                         </div>
                       ))
                     }
-                    <button onClick={() => openBook(r.id)} style={{ width: "100%", marginTop: 12, padding: "10px", background: r.color, color: "#fff", border: "none", borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: "pointer" }}>+ Book Room</button>
+                    <button onClick={() => openBook(r.id)} style={{width:"100%",marginTop:12,padding:"10px",background:r.color,color:"#fff",border:"none",borderRadius:10,fontWeight:600,fontSize:14,cursor:"pointer"}}>+ Book Room</button>
                   </div>
                 </div>
               );
             })}
           </div>
         ) : (
-          <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e5e7eb", overflowX: "auto" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "100px repeat(4, 1fr)", borderBottom: "2px solid #e5e7eb", minWidth: 640 }}>
-              <div style={{ padding: "14px 12px", background: "#f9fafb", fontSize: 12, fontWeight: 700, color: "#6b7280" }}>TIME</div>
+          <div style={{background:"#fff",borderRadius:16,border:"1px solid #e5e7eb",overflowX:"auto"}}>
+            <div style={{display:"grid",gridTemplateColumns:"100px repeat(4, 1fr)",borderBottom:"2px solid #e5e7eb",minWidth:640}}>
+              <div style={{padding:"14px 12px",background:"#f9fafb",fontSize:12,fontWeight:700,color:"#6b7280"}}>TIME</div>
               {ROOMS.map(r => (
-                <div key={r.id} style={{ padding: "10px 12px", background: r.color, color: "#fff", fontWeight: 700, fontSize: 13, textAlign: "center" }}>
+                <div key={r.id} style={{padding:"10px 12px",background:r.color,color:"#fff",fontWeight:700,fontSize:13,textAlign:"center"}}>
                   <div>{r.icon} {r.name}</div>
-                  <div style={{ fontSize: 11, opacity: 0.8, fontWeight: 400 }}>👥 {r.capacity}</div>
+                  <div style={{fontSize:11,opacity:0.8,fontWeight:400}}>👥 {r.capacity}</div>
                 </div>
               ))}
             </div>
             {HOURS.map((slot, i) => (
-              <div key={slot.value} style={{ display: "grid", gridTemplateColumns: "100px repeat(4, 1fr)", borderBottom: i % 2 === 0 ? "1px solid #f3f4f6" : "1px dashed #f3f4f6", minWidth: 640 }}>
-                <div style={{ padding: "8px 12px", fontSize: 11, color: "#9ca3af", fontWeight: 500, background: i % 2 === 0 ? "#fafafa" : "#fff" }}>{slot.label}</div>
+              <div key={slot.value} style={{display:"grid",gridTemplateColumns:"100px repeat(4, 1fr)",borderBottom:i%2===0?"1px solid #f3f4f6":"1px dashed #f3f4f6",minWidth:640}}>
+                <div style={{padding:"8px 12px",fontSize:11,color:"#9ca3af",fontWeight:500,background:i%2===0?"#fafafa":"#fff"}}>{slot.label}</div>
                 {ROOMS.map(r => {
                   const bk = dayBookings(r.id).find(b => b.start === slot.value);
                   const isBusy = dayBookings(r.id).some(b => b.start < slot.value && b.end > slot.value);
                   return (
-                    <div key={r.id} style={{ padding: "3px 6px", background: i % 2 === 0 ? "#fff" : "#fafafa", borderLeft: "1px solid #f3f4f6", minHeight: 36 }}>
+                    <div key={r.id} style={{padding:"3px 6px",background:i%2===0?"#fff":"#fafafa",borderLeft:"1px solid #f3f4f6",minHeight:36}}>
                       {bk && (
-                        <div style={{ background: r.color, color: "#fff", borderRadius: 6, padding: "3px 7px", fontSize: 11, fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{background:r.color,color:"#fff",borderRadius:6,padding:"3px 7px",fontSize:11,fontWeight:600,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                           <div>
                             <div>{bk.title} {bk.recurringId && "🔁"}</div>
-                            <div style={{ opacity: 0.8 }}>{bk.name} · –{bk.end}</div>
+                            <div style={{opacity:0.8}}>{bk.name} · –{bk.end}</div>
                           </div>
-                          <button onClick={() => openCancel(bk)} style={{ background: "rgba(0,0,0,0.2)", border: "none", borderRadius: 4, color: "#fff", cursor: "pointer", fontSize: 10, padding: "2px 5px" }}>✕</button>
+                          <button onClick={() => openCancel(bk)} style={{background:"rgba(0,0,0,0.2)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:10,padding:"2px 5px"}}>✕</button>
                         </div>
                       )}
-                      {isBusy && !bk && <div style={{ height: "100%", background: `${r.color}20`, borderLeft: `3px solid ${r.color}55` }} />}
+                      {isBusy && !bk && <div style={{height:"100%",background:`${r.color}20`,borderLeft:`3px solid ${r.color}55`}} />}
                       {!bk && !isBusy && (
-                        <button onClick={() => openBook(r.id, slot.value)} style={{ background: "none", border: "1px dashed #e5e7eb", borderRadius: 6, width: "100%", height: 30, cursor: "pointer", color: "#d1d5db", fontSize: 10 }}>+ Book</button>
+                        <button onClick={() => openBook(r.id, slot.value)} style={{background:"none",border:"1px dashed #e5e7eb",borderRadius:6,width:"100%",height:30,cursor:"pointer",color:"#d1d5db",fontSize:10}}>+ Book</button>
                       )}
                     </div>
                   );
@@ -247,61 +223,53 @@ export default function App() {
         )}
       </div>
 
-      {/* Booking Modal */}
       {modal && room && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
-          <div style={{ background: "#fff", borderRadius: 20, width: 420, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
-            <div style={{ background: room.color, padding: "24px 28px", color: "#fff" }}>
-              <div style={{ fontSize: 28, marginBottom: 6 }}>{room.icon}</div>
-              <div style={{ fontWeight: 700, fontSize: 20 }}>Book {room.name}</div>
-              <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>👥 {room.capacity} {room.capacity === 1 ? "person" : "people"} · {room.amenities.join(", ")}</div>
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100}}>
+          <div style={{background:"#fff",borderRadius:20,width:420,overflow:"hidden",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
+            <div style={{background:room.color,padding:"24px 28px",color:"#fff"}}>
+              <div style={{fontSize:28,marginBottom:6}}>{room.icon}</div>
+              <div style={{fontWeight:700,fontSize:20}}>Book {room.name}</div>
+              <div style={{fontSize:13,opacity:0.85,marginTop:4}}>👥 {room.capacity} {room.capacity===1?"person":"people"} · {room.amenities.join(", ")}</div>
             </div>
-            <div style={{ padding: "24px 28px" }}>
-              {[["Your Name", "name", "e.g. Anna Smith"], ["Meeting Title", "title", "e.g. Weekly Standup"]].map(([label, key, ph]) => (
-                <div key={key} style={{ marginBottom: 16 }}>
-                  <label style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#374151", marginBottom: 6 }}>{label}</label>
-                  <input type="text" placeholder={ph} value={form[key]}
-                    onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                    style={{ width: "100%", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "10px 14px", fontSize: 14, boxSizing: "border-box" }} />
+            <div style={{padding:"24px 28px"}}>
+              {[["Your Name","name","e.g. Anna Smith"],["Meeting Title","title","e.g. Weekly Standup"]].map(([label,key,ph]) => (
+                <div key={key} style={{marginBottom:16}}>
+                  <label style={{display:"block",fontWeight:600,fontSize:13,color:"#374151",marginBottom:6}}>{label}</label>
+                  <input type="text" placeholder={ph} value={form[key]} onChange={e => setForm(f => ({...f,[key]:e.target.value}))}
+                    style={{width:"100%",border:"1.5px solid #e5e7eb",borderRadius:10,padding:"10px 14px",fontSize:14,boxSizing:"border-box"}} />
                 </div>
               ))}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-                {[["Start Time", "start"], ["End Time", "end"]].map(([label, key]) => (
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+                {[["Start Time","start"],["End Time","end"]].map(([label,key]) => (
                   <div key={key}>
-                    <label style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#374151", marginBottom: 6 }}>{label}</label>
-                    <select value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                      style={{ width: "100%", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "10px 14px", fontSize: 14 }}>
+                    <label style={{display:"block",fontWeight:600,fontSize:13,color:"#374151",marginBottom:6}}>{label}</label>
+                    <select value={form[key]} onChange={e => setForm(f => ({...f,[key]:e.target.value}))}
+                      style={{width:"100%",border:"1.5px solid #e5e7eb",borderRadius:10,padding:"10px 14px",fontSize:14}}>
                       {HOURS.map(h => <option key={h.value} value={h.value}>{h.label}</option>)}
                     </select>
                   </div>
                 ))}
               </div>
-
-              {/* Recurring toggle */}
-              <div style={{ background: "#f9fafb", borderRadius: 12, padding: "14px 16px", marginBottom: 16, border: "1.5px solid #e5e7eb" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-                  <input type="checkbox" checked={form.recurring} onChange={e => setForm(f => ({ ...f, recurring: e.target.checked }))}
-                    style={{ width: 16, height: 16, cursor: "pointer" }} />
-                  <span style={{ fontWeight: 600, fontSize: 13, color: "#374151" }}>🔁 Repeat weekly</span>
+              <div style={{background:"#f9fafb",borderRadius:12,padding:"14px 16px",marginBottom:16,border:"1.5px solid #e5e7eb"}}>
+                <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
+                  <input type="checkbox" checked={form.recurring} onChange={e => setForm(f => ({...f,recurring:e.target.checked}))} style={{width:16,height:16,cursor:"pointer"}} />
+                  <span style={{fontWeight:600,fontSize:13,color:"#374151"}}>🔁 Repeat weekly</span>
                 </label>
                 {form.recurring && (
-                  <div style={{ marginTop: 12 }}>
-                    <label style={{ display: "block", fontWeight: 600, fontSize: 12, color: "#6b7280", marginBottom: 6 }}>Number of weeks</label>
-                    <select value={form.weeks} onChange={e => setForm(f => ({ ...f, weeks: Number(e.target.value) }))}
-                      style={{ border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "8px 12px", fontSize: 13, width: "100%" }}>
+                  <div style={{marginTop:12}}>
+                    <label style={{display:"block",fontWeight:600,fontSize:12,color:"#6b7280",marginBottom:6}}>Number of weeks</label>
+                    <select value={form.weeks} onChange={e => setForm(f => ({...f,weeks:Number(e.target.value)}))}
+                      style={{border:"1.5px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:13,width:"100%"}}>
                       {[2,4,6,8,12,16,26,52].map(w => <option key={w} value={w}>{w} weeks (~{Math.round(w/4.3)} months)</option>)}
                     </select>
-                    <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 6 }}>
-                      Booking every week from {selectedDate} for {form.weeks} weeks
-                    </div>
+                    <div style={{fontSize:12,color:"#9ca3af",marginTop:6}}>Booking every week from {selectedDate} for {form.weeks} weeks</div>
                   </div>
                 )}
               </div>
-
-              {formErr && <div style={{ color: "#ef4444", fontSize: 13, marginBottom: 12, background: "#fef2f2", padding: "8px 12px", borderRadius: 8 }}>⚠️ {formErr}</div>}
-              <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => setModal(null)} style={{ flex: 1, padding: "12px", border: "1.5px solid #e5e7eb", borderRadius: 10, background: "#fff", fontWeight: 600, fontSize: 14, cursor: "pointer", color: "#374151" }}>Cancel</button>
-                <button onClick={submitBooking} style={{ flex: 2, padding: "12px", border: "none", borderRadius: 10, background: room.color, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+              {formErr && <div style={{color:"#ef4444",fontSize:13,marginBottom:12,background:"#fef2f2",padding:"8px 12px",borderRadius:8}}>⚠️ {formErr}</div>}
+              <div style={{display:"flex",gap:10}}>
+                <button onClick={() => setModal(null)} style={{flex:1,padding:"12px",border:"1.5px solid #e5e7eb",borderRadius:10,background:"#fff",fontWeight:600,fontSize:14,cursor:"pointer",color:"#374151"}}>Cancel</button>
+                <button onClick={submitBooking} style={{flex:2,padding:"12px",border:"none",borderRadius:10,background:room.color,color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer"}}>
                   {form.recurring ? `Book ${form.weeks} Weeks 🔁` : "Confirm Booking"}
                 </button>
               </div>
@@ -310,40 +278,44 @@ export default function App() {
         </div>
       )}
 
-      {/* Cancel Modal */}
       {cancelTarget && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
-          <div style={{ background: "#fff", borderRadius: 16, padding: 28, width: 360, textAlign: "center" }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>🗑️</div>
-            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Delete Booking?</div>
-            <div style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}>
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100}}>
+          <div style={{background:"#fff",borderRadius:16,padding:28,width:360,textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:12}}>🗑️</div>
+            <div style={{fontWeight:700,fontSize:18,marginBottom:8}}>Delete Booking?</div>
+            <div style={{color:"#6b7280",fontSize:14,marginBottom:20}}>
               <strong>{cancelTarget.title}</strong> by {cancelTarget.name}<br />{cancelTarget.start}–{cancelTarget.end}
             </div>
             {cancelTarget.recurringId && (
-              <div style={{ marginBottom: 16, textAlign: "left" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, border: `2px solid ${cancelMode === "single" ? "#6366f1" : "#e5e7eb"}`, marginBottom: 8, cursor: "pointer" }}>
-                  <input type="radio" checked={cancelMode === "single"} onChange={() => setCancelMode("single")} />
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>Just this occurrence</span>
+              <div style={{marginBottom:16,textAlign:"left"}}>
+                <label style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:8,border:`2px solid ${cancelMode==="single"?"#6366f1":"#e5e7eb"}`,marginBottom:8,cursor:"pointer"}}>
+                  <input type="radio" checked={cancelMode==="single"} onChange={() => setCancelMode("single")} />
+                  <span style={{fontSize:13,fontWeight:600}}>Just this occurrence</span>
                 </label>
-                <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, border: `2px solid ${cancelMode === "all" ? "#ef4444" : "#e5e7eb"}`, cursor: "pointer" }}>
-                  <input type="radio" checked={cancelMode === "all"} onChange={() => setCancelMode("all")} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "#ef4444" }}>All recurring bookings 🔁</span>
+                <label style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:8,border:`2px solid ${cancelMode==="all"?"#ef4444":"#e5e7eb"}`,cursor:"pointer"}}>
+                  <input type="radio" checked={cancelMode==="all"} onChange={() => setCancelMode("all")} />
+                  <span style={{fontSize:13,fontWeight:600,color:"#ef4444"}}>All recurring bookings 🔁</span>
                 </label>
               </div>
             )}
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setCancelTarget(null)} style={{ flex: 1, padding: "11px", border: "1.5px solid #e5e7eb", borderRadius: 10, fontWeight: 600, cursor: "pointer", background: "#fff" }}>Keep</button>
-              <button onClick={cancelBooking} style={{ flex: 1, padding: "11px", border: "none", borderRadius: 10, fontWeight: 700, cursor: "pointer", background: "#ef4444", color: "#fff" }}>Delete</button>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={() => setCancelTarget(null)} style={{flex:1,padding:"11px",border:"1.5px solid #e5e7eb",borderRadius:10,fontWeight:600,cursor:"pointer",background:"#fff"}}>Keep</button>
+              <button onClick={cancelBooking} style={{flex:1,padding:"11px",border:"none",borderRadius:10,fontWeight:700,cursor:"pointer",background:"#ef4444",color:"#fff"}}>Delete</button>
             </div>
           </div>
         </div>
       )}
 
       {toast && (
-        <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", background: toast.type === "success" ? "#111827" : "#6366f1", color: "#fff", padding: "12px 24px", borderRadius: 40, fontWeight: 600, fontSize: 14, zIndex: 200 }}>
-          {toast.type === "success" ? "✅" : "ℹ️"} {toast.msg}
+        <div style={{position:"fixed",bottom:28,left:"50%",transform:"translateX(-50%)",background:toast.type==="success"?"#111827":"#6366f1",color:"#fff",padding:"12px 24px",borderRadius:40,fontWeight:600,fontSize:14,zIndex:200}}>
+          {toast.type==="success"?"✅":"ℹ️"} {toast.msg}
         </div>
       )}
     </div>
   );
 }
+
+ReactDOM.render(<App />, document.getElementById("root"));
+  </script>
+</body>
+</html>
