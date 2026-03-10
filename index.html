@@ -1,292 +1,276 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta http-equiv="Content-Style-Type" content="text/css">
-  <title></title>
-  <meta name="Generator" content="Cocoa HTML Writer">
-  <meta name="CocoaVersion" content="2575.7">
-  <style type="text/css">
-    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
-    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
-  </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RoomBook</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>* { margin: 0; padding: 0; box-sizing: border-box; } body { font-family: 'Inter', sans-serif; }</style>
 </head>
 <body>
-<p class="p1">&lt;!DOCTYPE html&gt;</p>
-<p class="p1">&lt;html lang="en"&gt;</p>
-<p class="p1">&lt;head&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta charset="UTF-8" /&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="viewport" content="width=device-width, initial-scale=1.0" /&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;title&gt;RoomBook&lt;/title&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"&gt;&lt;/script&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"&gt;&lt;/script&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"&gt;&lt;/script&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;style&gt;* { margin: 0; padding: 0; box-sizing: border-box; } body { font-family: 'Inter', sans-serif; }&lt;/style&gt;</p>
-<p class="p1">&lt;/head&gt;</p>
-<p class="p1">&lt;body&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;div id="root"&gt;&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;script type="text/babel"&gt;</p>
-<p class="p1">const ROOMS = [</p>
-<p class="p1"><span class="Apple-converted-space">  </span>{ id: "small-conf", name: "Small Conference", capacity: 4, amenities: ["TV", "Whiteboard", "Video Call"], color: "#6366f1", icon: "🪑" },</p>
-<p class="p1"><span class="Apple-converted-space">  </span>{ id: "large-conf", name: "Large Conference", capacity: 10, amenities: ["Projector", "Whiteboard", "Video Call", "Phone"], color: "#0ea5e9", icon: "🏛️" },</p>
-<p class="p1"><span class="Apple-converted-space">  </span>{ id: "phone-booth", name: "Phone Booth", capacity: 1, amenities: ["Phone", "Video Call"], color: "#10b981", icon: "📞" },</p>
-<p class="p1"><span class="Apple-converted-space">  </span>{ id: "small-office", name: "Small Office", capacity: 1, amenities: ["Desk", "Monitor"], color: "#f59e0b", icon: "🚪" },</p>
-<p class="p1">];</p>
-<p class="p2"><br></p>
-<p class="p1">const HOURS = (() =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">  </span>const slots = [];</p>
-<p class="p1"><span class="Apple-converted-space">  </span>let h = 9, m = 30;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>while (h &lt; 18 || (h === 18 &amp;&amp; m === 0)) {</p>
-<p class="p1"><span class="Apple-converted-space">    </span>const label = h &lt; 12 ? `${h}:${String(m).padStart(2,"0")} AM`</p>
-<p class="p1"><span class="Apple-converted-space">      </span>: h === 12 ? `12:${String(m).padStart(2,"0")} PM`</p>
-<p class="p1"><span class="Apple-converted-space">      </span>: `${h-12}:${String(m).padStart(2,"0")} PM`;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>slots.push({ value: `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`, label });</p>
-<p class="p1"><span class="Apple-converted-space">    </span>m += 30; if (m === 60) { m = 0; h++; }</p>
-<p class="p1"><span class="Apple-converted-space">  </span>}</p>
-<p class="p1"><span class="Apple-converted-space">  </span>return slots;</p>
-<p class="p1">})();</p>
-<p class="p2"><br></p>
-<p class="p1">const STORAGE_KEY = "room_bookings_v2";</p>
-<p class="p1">function todayStr() { return new Date().toISOString().split("T")[0]; }</p>
-<p class="p1">function timeToMin(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }</p>
-<p class="p1">function overlaps(a, b) { return timeToMin(a.start) &lt; timeToMin(b.end) &amp;&amp; timeToMin(a.end) &gt; timeToMin(b.start); }</p>
-<p class="p2"><br></p>
-<p class="p1">function App() {</p>
-<p class="p1"><span class="Apple-converted-space">  </span>const [bookings, setBookings] = React.useState(() =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">    </span>try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }</p>
-<p class="p1"><span class="Apple-converted-space">  </span>});</p>
-<p class="p1"><span class="Apple-converted-space">  </span>const [view, setView] = React.useState("grid");</p>
-<p class="p1"><span class="Apple-converted-space">  </span>const [selectedDate, setSelectedDate] = React.useState(todayStr());</p>
-<p class="p1"><span class="Apple-converted-space">  </span>const [modal, setModal] = React.useState(null);</p>
-<p class="p1"><span class="Apple-converted-space">  </span>const [form, setForm] = React.useState({ name: "", title: "", start: "09:30", end: "10:30" });</p>
-<p class="p1"><span class="Apple-converted-space">  </span>const [formErr, setFormErr] = React.useState("");</p>
-<p class="p1"><span class="Apple-converted-space">  </span>const [toast, setToast] = React.useState(null);</p>
-<p class="p1"><span class="Apple-converted-space">  </span>const [cancelTarget, setCancelTarget] = React.useState(null);</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>function saveBookings(next) {</p>
-<p class="p1"><span class="Apple-converted-space">    </span>setBookings(next);</p>
-<p class="p1"><span class="Apple-converted-space">    </span>localStorage.setItem(STORAGE_KEY, JSON.stringify(next));</p>
-<p class="p1"><span class="Apple-converted-space">  </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>function dayBookings(roomId) {</p>
-<p class="p1"><span class="Apple-converted-space">    </span>return bookings.filter(b =&gt; b.roomId === roomId &amp;&amp; b.date === selectedDate);</p>
-<p class="p1"><span class="Apple-converted-space">  </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>function showToast(msg, type = "success") {</p>
-<p class="p1"><span class="Apple-converted-space">    </span>setToast({ msg, type });</p>
-<p class="p1"><span class="Apple-converted-space">    </span>setTimeout(() =&gt; setToast(null), 3000);</p>
-<p class="p1"><span class="Apple-converted-space">  </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>function openBook(roomId, startOverride) {</p>
-<p class="p1"><span class="Apple-converted-space">    </span>const start = startOverride || "09:30";</p>
-<p class="p1"><span class="Apple-converted-space">    </span>const startIdx = HOURS.findIndex(h =&gt; h.value === start);</p>
-<p class="p1"><span class="Apple-converted-space">    </span>const end = HOURS[Math.min(startIdx + 2, HOURS.length - 1)].value;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>setForm({ name: "", title: "", start, end });</p>
-<p class="p1"><span class="Apple-converted-space">    </span>setFormErr("");</p>
-<p class="p1"><span class="Apple-converted-space">    </span>setModal({ roomId });</p>
-<p class="p1"><span class="Apple-converted-space">  </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>function submitBooking() {</p>
-<p class="p1"><span class="Apple-converted-space">    </span>if (!form.name.trim()) return setFormErr("Please enter your name.");</p>
-<p class="p1"><span class="Apple-converted-space">    </span>if (!form.title.trim()) return setFormErr("Please enter a meeting title.");</p>
-<p class="p1"><span class="Apple-converted-space">    </span>if (timeToMin(form.end) &lt;= timeToMin(form.start)) return setFormErr("End time must be after start time.");</p>
-<p class="p1"><span class="Apple-converted-space">    </span>if (dayBookings(modal.roomId).some(b =&gt; overlaps(form, b))) return setFormErr("This slot is already booked. Pick another time.");</p>
-<p class="p1"><span class="Apple-converted-space">    </span>saveBookings([...bookings, { id: Date.now(), roomId: modal.roomId, date: selectedDate, ...form }]);</p>
-<p class="p1"><span class="Apple-converted-space">    </span>setModal(null);</p>
-<p class="p1"><span class="Apple-converted-space">    </span>showToast("Room booked successfully!");</p>
-<p class="p1"><span class="Apple-converted-space">  </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>function cancelBooking() {</p>
-<p class="p1"><span class="Apple-converted-space">    </span>saveBookings(bookings.filter(b =&gt; b.id !== cancelTarget.id));</p>
-<p class="p1"><span class="Apple-converted-space">    </span>setCancelTarget(null);</p>
-<p class="p1"><span class="Apple-converted-space">    </span>showToast("Booking cancelled.", "info");</p>
-<p class="p1"><span class="Apple-converted-space">  </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>function isAvailableNow(roomId) {</p>
-<p class="p1"><span class="Apple-converted-space">    </span>if (selectedDate !== todayStr()) return true;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>const now = new Date();</p>
-<p class="p1"><span class="Apple-converted-space">    </span>const cur = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>return !dayBookings(roomId).some(b =&gt; b.start &lt;= cur &amp;&amp; b.end &gt; cur);</p>
-<p class="p1"><span class="Apple-converted-space">  </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>const room = modal ? ROOMS.find(r =&gt; r.id === modal.roomId) : null;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;div style={{ minHeight: "100vh", background: "#f8f9fc", fontFamily: "sans-serif" }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div style={{ background: "#111827", padding: "18px 28px", display: "flex", alignItems: "center", justifyContent: "space-between" }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div style={{ display: "flex", alignItems: "center", gap: 10 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;div style={{ width: 32, height: 32, background: "#6366f1", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}&gt;🏢&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;span style={{ color: "#fff", fontWeight: 700, fontSize: 18 }}&gt;RoomBook&lt;/span&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div style={{ display: "flex", gap: 8 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>{["grid","timeline"].map(v =&gt; (</p>
-<p class="p1"><span class="Apple-converted-space">            </span>&lt;button key={v} onClick={() =&gt; setView(v)} style={{ padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, background: view === v ? "#6366f1" : "#1f2937", color: view === v ? "#fff" : "#9ca3af" }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">              </span>{v === "grid" ? "🃏 Cards" : "📅 Timeline"}</p>
-<p class="p1"><span class="Apple-converted-space">            </span>&lt;/button&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>))}</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div style={{ background: "#fff", borderBottom: "1px solid #e5e7eb", padding: "14px 28px", display: "flex", alignItems: "center", gap: 16 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;span style={{ fontWeight: 600, color: "#374151", fontSize: 14 }}&gt;📆 Date&lt;/span&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;input type="date" value={selectedDate} onChange={e =&gt; setSelectedDate(e.target.value)}</p>
-<p class="p1"><span class="Apple-converted-space">          </span>style={{ border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "6px 12px", fontSize: 14, color: "#111827", cursor: "pointer" }} /&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;button onClick={() =&gt; setSelectedDate(todayStr())}</p>
-<p class="p1"><span class="Apple-converted-space">          </span>style={{ background: "#f3f4f6", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 600, color: "#6366f1", cursor: "pointer" }}&gt;Today&lt;/button&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;span style={{ marginLeft: "auto", color: "#9ca3af", fontSize: 13 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>{bookings.filter(b =&gt; b.date === selectedDate).length} booking(s) on this day</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;/span&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div style={{ padding: "28px" }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>{view === "grid" ? (</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">            </span>{ROOMS.map(r =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">              </span>const avail = isAvailableNow(r.id);</p>
-<p class="p1"><span class="Apple-converted-space">              </span>const bks = dayBookings(r.id).sort((a,b) =&gt; a.start.localeCompare(b.start));</p>
-<p class="p1"><span class="Apple-converted-space">              </span>return (</p>
-<p class="p1"><span class="Apple-converted-space">                </span>&lt;div key={r.id} style={{ background: "#fff", borderRadius: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.08)", overflow: "hidden", border: "1px solid #e5e7eb" }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div style={{ background: r.color, padding: "22px 22px 18px", color: "#fff" }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div style={{ fontSize: 22, marginBottom: 4 }}&gt;{r.icon}&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div style={{ fontSize: 18, fontWeight: 700 }}&gt;{r.name}&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div style={{ fontSize: 13, opacity: 0.85, marginTop: 2 }}&gt;👥 Up to {r.capacity} {r.capacity === 1 ? "person" : "people"}&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                      </span>&lt;span style={{ background: avail ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.25)", borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 600 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                        </span>{avail ? "✅ Free" : "🔴 Busy"}</p>
-<p class="p1"><span class="Apple-converted-space">                      </span>&lt;/span&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                      </span>{r.amenities.map(a =&gt; (</p>
-<p class="p1"><span class="Apple-converted-space">                        </span>&lt;span key={a} style={{ background: "rgba(255,255,255,0.2)", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 500 }}&gt;{a}&lt;/span&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                      </span>))}</p>
-<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div style={{ padding: "16px 22px" }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", marginBottom: 8 }}&gt;SCHEDULE · 9:30 AM – 6:00 PM&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                    </span>{bks.length === 0</p>
-<p class="p1"><span class="Apple-converted-space">                      </span>? &lt;div style={{ color: "#9ca3af", fontSize: 13, padding: "8px 0" }}&gt;No bookings yet&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                      </span>: bks.map(b =&gt; (</p>
-<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: "#f9fafb", borderRadius: 8, marginBottom: 6 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                          </span>&lt;div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                            </span>&lt;div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}&gt;{b.title}&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                            </span>&lt;div style={{ fontSize: 12, color: "#9ca3af" }}&gt;{b.name} · {b.start}–{b.end}&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                          </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                          </span>&lt;button onClick={() =&gt; setCancelTarget(b)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: 16, padding: 2 }}&gt;✕&lt;/button&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                      </span>))</p>
-<p class="p1"><span class="Apple-converted-space">                    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button onClick={() =&gt; openBook(r.id)} style={{ width: "100%", marginTop: 12, padding: "10px", background: r.color, color: "#fff", border: "none", borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: "pointer" }}&gt;+ Book Room&lt;/button&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">              </span>);</p>
-<p class="p1"><span class="Apple-converted-space">            </span>})}</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>) : (</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e5e7eb", overflowX: "auto" }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">            </span>&lt;div style={{ display: "grid", gridTemplateColumns: "100px repeat(4, 1fr)", borderBottom: "2px solid #e5e7eb", minWidth: 640 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">              </span>&lt;div style={{ padding: "14px 12px", background: "#f9fafb", fontSize: 12, fontWeight: 700, color: "#6b7280" }}&gt;TIME&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">              </span>{ROOMS.map(r =&gt; (</p>
-<p class="p1"><span class="Apple-converted-space">                </span>&lt;div key={r.id} style={{ padding: "10px 12px", background: r.color, color: "#fff", fontWeight: 700, fontSize: 13, textAlign: "center" }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div&gt;{r.icon} {r.name}&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div style={{ fontSize: 11, opacity: 0.8, fontWeight: 400 }}&gt;👥 {r.capacity}&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">              </span>))}</p>
-<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">            </span>{HOURS.map((slot, i) =&gt; (</p>
-<p class="p1"><span class="Apple-converted-space">              </span>&lt;div key={slot.value} style={{ display: "grid", gridTemplateColumns: "100px repeat(4, 1fr)", borderBottom: i % 2 === 0 ? "1px solid #f3f4f6" : "1px dashed #f3f4f6", minWidth: 640 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                </span>&lt;div style={{ padding: "8px 12px", fontSize: 11, color: "#9ca3af", fontWeight: 500, background: i % 2 === 0 ? "#fafafa" : "#fff" }}&gt;{slot.label}&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                </span>{ROOMS.map(r =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">                  </span>const bk = dayBookings(r.id).find(b =&gt; b.start === slot.value);</p>
-<p class="p1"><span class="Apple-converted-space">                  </span>const isBusy = dayBookings(r.id).some(b =&gt; b.start &lt; slot.value &amp;&amp; b.end &gt; slot.value);</p>
-<p class="p1"><span class="Apple-converted-space">                  </span>return (</p>
-<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div key={r.id} style={{ padding: "3px 6px", background: i % 2 === 0 ? "#fff" : "#fafafa", borderLeft: "1px solid #f3f4f6", minHeight: 36 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                      </span>{bk &amp;&amp; (</p>
-<p class="p1"><span class="Apple-converted-space">                        </span>&lt;div style={{ background: r.color, color: "#fff", borderRadius: 6, padding: "3px 7px", fontSize: 11, fontWeight: 600 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                          </span>&lt;div&gt;{bk.title}&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                          </span>&lt;div style={{ opacity: 0.8 }}&gt;{bk.name} · –{bk.end}&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                        </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                      </span>)}</p>
-<p class="p1"><span class="Apple-converted-space">                      </span>{isBusy &amp;&amp; !bk &amp;&amp; &lt;div style={{ height: "100%", background: `${r.color}20`, borderLeft: `3px solid ${r.color}55` }} /&gt;}</p>
-<p class="p1"><span class="Apple-converted-space">                      </span>{!bk &amp;&amp; !isBusy &amp;&amp; (</p>
-<p class="p1"><span class="Apple-converted-space">                        </span>&lt;button onClick={() =&gt; openBook(r.id, slot.value)} style={{ background: "none", border: "1px dashed #e5e7eb", borderRadius: 6, width: "100%", height: 30, cursor: "pointer", color: "#d1d5db", fontSize: 10 }}&gt;+ Book&lt;/button&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                      </span>)}</p>
-<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                  </span>);</p>
-<p class="p1"><span class="Apple-converted-space">                </span>})}</p>
-<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">            </span>))}</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>)}</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>{modal &amp;&amp; room &amp;&amp; (</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;div style={{ background: "#fff", borderRadius: 20, width: 420, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">            </span>&lt;div style={{ background: room.color, padding: "24px 28px", color: "#fff" }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">              </span>&lt;div style={{ fontSize: 28, marginBottom: 6 }}&gt;{room.icon}&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">              </span>&lt;div style={{ fontWeight: 700, fontSize: 20 }}&gt;Book {room.name}&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">              </span>&lt;div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}&gt;👥 {room.capacity} {room.capacity === 1 ? "person" : "people"} · {room.amenities.join(", ")}&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">            </span>&lt;div style={{ padding: "24px 28px" }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">              </span>{[["Your Name", "name", "e.g. Anna Smith"], ["Meeting Title", "title", "e.g. Product Sync"]].map(([label, key, ph]) =&gt; (</p>
-<p class="p1"><span class="Apple-converted-space">                </span>&lt;div key={key} style={{ marginBottom: 16 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                  </span>&lt;label style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#374151", marginBottom: 6 }}&gt;{label}&lt;/label&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                  </span>&lt;input type="text" placeholder={ph} value={form[key]}</p>
-<p class="p1"><span class="Apple-converted-space">                    </span>onChange={e =&gt; setForm(f =&gt; ({ ...f, [key]: e.target.value }))}</p>
-<p class="p1"><span class="Apple-converted-space">                    </span>style={{ width: "100%", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "10px 14px", fontSize: 14, boxSizing: "border-box" }} /&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">              </span>))}</p>
-<p class="p1"><span class="Apple-converted-space">              </span>&lt;div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                </span>{[["Start Time", "start"], ["End Time", "end"]].map(([label, key]) =&gt; (</p>
-<p class="p1"><span class="Apple-converted-space">                  </span>&lt;div key={key}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                    </span>&lt;label style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#374151", marginBottom: 6 }}&gt;{label}&lt;/label&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                    </span>&lt;select value={form[key]} onChange={e =&gt; setForm(f =&gt; ({ ...f, [key]: e.target.value }))}</p>
-<p class="p1"><span class="Apple-converted-space">                      </span>style={{ width: "100%", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "10px 14px", fontSize: 14 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                      </span>{HOURS.map(h =&gt; &lt;option key={h.value} value={h.value}&gt;{h.label}&lt;/option&gt;)}</p>
-<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/select&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                </span>))}</p>
-<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">              </span>{formErr &amp;&amp; &lt;div style={{ color: "#ef4444", fontSize: 13, marginBottom: 12, background: "#fef2f2", padding: "8px 12px", borderRadius: 8 }}&gt;⚠️ {formErr}&lt;/div&gt;}</p>
-<p class="p1"><span class="Apple-converted-space">              </span>&lt;div style={{ display: "flex", gap: 10 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                </span>&lt;button onClick={() =&gt; setModal(null)} style={{ flex: 1, padding: "12px", border: "1.5px solid #e5e7eb", borderRadius: 10, background: "#fff", fontWeight: 600, fontSize: 14, cursor: "pointer", color: "#374151" }}&gt;Cancel&lt;/button&gt;</p>
-<p class="p1"><span class="Apple-converted-space">                </span>&lt;button onClick={submitBooking} style={{ flex: 2, padding: "12px", border: "none", borderRadius: 10, background: room.color, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}&gt;Confirm Booking&lt;/button&gt;</p>
-<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>)}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>{cancelTarget &amp;&amp; (</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;div style={{ background: "#fff", borderRadius: 16, padding: 28, width: 340, textAlign: "center" }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">            </span>&lt;div style={{ fontSize: 36, marginBottom: 12 }}&gt;🗑️&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">            </span>&lt;div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}&gt;Cancel Booking?&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">            </span>&lt;div style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">              </span>&lt;strong&gt;{cancelTarget.title}&lt;/strong&gt; by {cancelTarget.name}&lt;br /&gt;{cancelTarget.start}–{cancelTarget.end}</p>
-<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">            </span>&lt;div style={{ display: "flex", gap: 10 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">              </span>&lt;button onClick={() =&gt; setCancelTarget(null)} style={{ flex: 1, padding: "11px", border: "1.5px solid #e5e7eb", borderRadius: 10, fontWeight: 600, cursor: "pointer", background: "#fff" }}&gt;Keep&lt;/button&gt;</p>
-<p class="p1"><span class="Apple-converted-space">              </span>&lt;button onClick={cancelBooking} style={{ flex: 1, padding: "11px", border: "none", borderRadius: 10, fontWeight: 700, cursor: "pointer", background: "#ef4444", color: "#fff" }}&gt;Cancel It&lt;/button&gt;</p>
-<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>)}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>{toast &amp;&amp; (</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", background: toast.type === "success" ? "#111827" : "#6366f1", color: "#fff", padding: "12px 24px", borderRadius: 40, fontWeight: 600, fontSize: 14, zIndex: 200 }}&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>{toast.type === "success" ? "✅" : "ℹ️"} {toast.msg}</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>)}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>);</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">ReactDOM.render(&lt;App /&gt;, document.getElementById("root"));</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;/script&gt;</p>
-<p class="p1">&lt;/body&gt;</p>
-<p class="p1">&lt;/html&gt;</p>
+  <div id="root"></div>
+  <script type="text/babel">
+const ROOMS = [
+  { id: "small-conf", name: "Small Conference", capacity: 4, amenities: ["TV", "Whiteboard", "Video Call"], color: "#6366f1", icon: "🪑" },
+  { id: "large-conf", name: "Large Conference", capacity: 10, amenities: ["Projector", "Whiteboard", "Video Call", "Phone"], color: "#0ea5e9", icon: "🏛️" },
+  { id: "phone-booth", name: "Phone Booth", capacity: 1, amenities: ["Phone", "Video Call"], color: "#10b981", icon: "📞" },
+  { id: "small-office", name: "Small Office", capacity: 1, amenities: ["Desk", "Monitor"], color: "#f59e0b", icon: "🚪" },
+];
+
+const HOURS = (() => {
+  const slots = [];
+  let h = 9, m = 30;
+  while (h < 18 || (h === 18 && m === 0)) {
+    const label = h < 12 ? `${h}:${String(m).padStart(2,"0")} AM`
+      : h === 12 ? `12:${String(m).padStart(2,"0")} PM`
+      : `${h-12}:${String(m).padStart(2,"0")} PM`;
+    slots.push({ value: `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`, label });
+    m += 30; if (m === 60) { m = 0; h++; }
+  }
+  return slots;
+})();
+
+const STORAGE_KEY = "room_bookings_v2";
+function todayStr() { return new Date().toISOString().split("T")[0]; }
+function timeToMin(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
+function overlaps(a, b) { return timeToMin(a.start) < timeToMin(b.end) && timeToMin(a.end) > timeToMin(b.start); }
+
+function App() {
+  const [bookings, setBookings] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
+  });
+  const [view, setView] = React.useState("grid");
+  const [selectedDate, setSelectedDate] = React.useState(todayStr());
+  const [modal, setModal] = React.useState(null);
+  const [form, setForm] = React.useState({ name: "", title: "", start: "09:30", end: "10:30" });
+  const [formErr, setFormErr] = React.useState("");
+  const [toast, setToast] = React.useState(null);
+  const [cancelTarget, setCancelTarget] = React.useState(null);
+
+  function saveBookings(next) {
+    setBookings(next);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  }
+
+  function dayBookings(roomId) {
+    return bookings.filter(b => b.roomId === roomId && b.date === selectedDate);
+  }
+
+  function showToast(msg, type = "success") {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  function openBook(roomId, startOverride) {
+    const start = startOverride || "09:30";
+    const startIdx = HOURS.findIndex(h => h.value === start);
+    const end = HOURS[Math.min(startIdx + 2, HOURS.length - 1)].value;
+    setForm({ name: "", title: "", start, end });
+    setFormErr("");
+    setModal({ roomId });
+  }
+
+  function submitBooking() {
+    if (!form.name.trim()) return setFormErr("Please enter your name.");
+    if (!form.title.trim()) return setFormErr("Please enter a meeting title.");
+    if (timeToMin(form.end) <= timeToMin(form.start)) return setFormErr("End time must be after start time.");
+    if (dayBookings(modal.roomId).some(b => overlaps(form, b))) return setFormErr("This slot is already booked. Pick another time.");
+    saveBookings([...bookings, { id: Date.now(), roomId: modal.roomId, date: selectedDate, ...form }]);
+    setModal(null);
+    showToast("Room booked successfully!");
+  }
+
+  function cancelBooking() {
+    saveBookings(bookings.filter(b => b.id !== cancelTarget.id));
+    setCancelTarget(null);
+    showToast("Booking cancelled.", "info");
+  }
+
+  function isAvailableNow(roomId) {
+    if (selectedDate !== todayStr()) return true;
+    const now = new Date();
+    const cur = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+    return !dayBookings(roomId).some(b => b.start <= cur && b.end > cur);
+  }
+
+  const room = modal ? ROOMS.find(r => r.id === modal.roomId) : null;
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#f8f9fc", fontFamily: "sans-serif" }}>
+      <div style={{ background: "#111827", padding: "18px 28px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 32, height: 32, background: "#6366f1", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🏢</div>
+          <span style={{ color: "#fff", fontWeight: 700, fontSize: 18 }}>RoomBook</span>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {["grid","timeline"].map(v => (
+            <button key={v} onClick={() => setView(v)} style={{ padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, background: view === v ? "#6366f1" : "#1f2937", color: view === v ? "#fff" : "#9ca3af" }}>
+              {v === "grid" ? "🃏 Cards" : "📅 Timeline"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ background: "#fff", borderBottom: "1px solid #e5e7eb", padding: "14px 28px", display: "flex", alignItems: "center", gap: 16 }}>
+        <span style={{ fontWeight: 600, color: "#374151", fontSize: 14 }}>📆 Date</span>
+        <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
+          style={{ border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "6px 12px", fontSize: 14, color: "#111827", cursor: "pointer" }} />
+        <button onClick={() => setSelectedDate(todayStr())}
+          style={{ background: "#f3f4f6", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 600, color: "#6366f1", cursor: "pointer" }}>Today</button>
+        <span style={{ marginLeft: "auto", color: "#9ca3af", fontSize: 13 }}>
+          {bookings.filter(b => b.date === selectedDate).length} booking(s) on this day
+        </span>
+      </div>
+
+      <div style={{ padding: "28px" }}>
+        {view === "grid" ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
+            {ROOMS.map(r => {
+              const avail = isAvailableNow(r.id);
+              const bks = dayBookings(r.id).sort((a,b) => a.start.localeCompare(b.start));
+              return (
+                <div key={r.id} style={{ background: "#fff", borderRadius: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.08)", overflow: "hidden", border: "1px solid #e5e7eb" }}>
+                  <div style={{ background: r.color, padding: "22px 22px 18px", color: "#fff" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontSize: 22, marginBottom: 4 }}>{r.icon}</div>
+                        <div style={{ fontSize: 18, fontWeight: 700 }}>{r.name}</div>
+                        <div style={{ fontSize: 13, opacity: 0.85, marginTop: 2 }}>👥 Up to {r.capacity} {r.capacity === 1 ? "person" : "people"}</div>
+                      </div>
+                      <span style={{ background: avail ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.25)", borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 600 }}>
+                        {avail ? "✅ Free" : "🔴 Busy"}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12 }}>
+                      {r.amenities.map(a => (
+                        <span key={a} style={{ background: "rgba(255,255,255,0.2)", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 500 }}>{a}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ padding: "16px 22px" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", marginBottom: 8 }}>SCHEDULE · 9:30 AM – 6:00 PM</div>
+                    {bks.length === 0
+                      ? <div style={{ color: "#9ca3af", fontSize: 13, padding: "8px 0" }}>No bookings yet</div>
+                      : bks.map(b => (
+                        <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: "#f9fafb", borderRadius: 8, marginBottom: 6 }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>{b.title}</div>
+                            <div style={{ fontSize: 12, color: "#9ca3af" }}>{b.name} · {b.start}–{b.end}</div>
+                          </div>
+                          <button onClick={() => setCancelTarget(b)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: 16, padding: 2 }}>✕</button>
+                        </div>
+                      ))
+                    }
+                    <button onClick={() => openBook(r.id)} style={{ width: "100%", marginTop: 12, padding: "10px", background: r.color, color: "#fff", border: "none", borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: "pointer" }}>+ Book Room</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e5e7eb", overflowX: "auto" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "100px repeat(4, 1fr)", borderBottom: "2px solid #e5e7eb", minWidth: 640 }}>
+              <div style={{ padding: "14px 12px", background: "#f9fafb", fontSize: 12, fontWeight: 700, color: "#6b7280" }}>TIME</div>
+              {ROOMS.map(r => (
+                <div key={r.id} style={{ padding: "10px 12px", background: r.color, color: "#fff", fontWeight: 700, fontSize: 13, textAlign: "center" }}>
+                  <div>{r.icon} {r.name}</div>
+                  <div style={{ fontSize: 11, opacity: 0.8, fontWeight: 400 }}>👥 {r.capacity}</div>
+                </div>
+              ))}
+            </div>
+            {HOURS.map((slot, i) => (
+              <div key={slot.value} style={{ display: "grid", gridTemplateColumns: "100px repeat(4, 1fr)", borderBottom: i % 2 === 0 ? "1px solid #f3f4f6" : "1px dashed #f3f4f6", minWidth: 640 }}>
+                <div style={{ padding: "8px 12px", fontSize: 11, color: "#9ca3af", fontWeight: 500, background: i % 2 === 0 ? "#fafafa" : "#fff" }}>{slot.label}</div>
+                {ROOMS.map(r => {
+                  const bk = dayBookings(r.id).find(b => b.start === slot.value);
+                  const isBusy = dayBookings(r.id).some(b => b.start < slot.value && b.end > slot.value);
+                  return (
+                    <div key={r.id} style={{ padding: "3px 6px", background: i % 2 === 0 ? "#fff" : "#fafafa", borderLeft: "1px solid #f3f4f6", minHeight: 36 }}>
+                      {bk && (
+                        <div style={{ background: r.color, color: "#fff", borderRadius: 6, padding: "3px 7px", fontSize: 11, fontWeight: 600 }}>
+                          <div>{bk.title}</div>
+                          <div style={{ opacity: 0.8 }}>{bk.name} · –{bk.end}</div>
+                        </div>
+                      )}
+                      {isBusy && !bk && <div style={{ height: "100%", background: `${r.color}20`, borderLeft: `3px solid ${r.color}55` }} />}
+                      {!bk && !isBusy && (
+                        <button onClick={() => openBook(r.id, slot.value)} style={{ background: "none", border: "1px dashed #e5e7eb", borderRadius: 6, width: "100%", height: 30, cursor: "pointer", color: "#d1d5db", fontSize: 10 }}>+ Book</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {modal && room && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
+          <div style={{ background: "#fff", borderRadius: 20, width: 420, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+            <div style={{ background: room.color, padding: "24px 28px", color: "#fff" }}>
+              <div style={{ fontSize: 28, marginBottom: 6 }}>{room.icon}</div>
+              <div style={{ fontWeight: 700, fontSize: 20 }}>Book {room.name}</div>
+              <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>👥 {room.capacity} {room.capacity === 1 ? "person" : "people"} · {room.amenities.join(", ")}</div>
+            </div>
+            <div style={{ padding: "24px 28px" }}>
+              {[["Your Name", "name", "e.g. Anna Smith"], ["Meeting Title", "title", "e.g. Product Sync"]].map(([label, key, ph]) => (
+                <div key={key} style={{ marginBottom: 16 }}>
+                  <label style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#374151", marginBottom: 6 }}>{label}</label>
+                  <input type="text" placeholder={ph} value={form[key]}
+                    onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                    style={{ width: "100%", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "10px 14px", fontSize: 14, boxSizing: "border-box" }} />
+                </div>
+              ))}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                {[["Start Time", "start"], ["End Time", "end"]].map(([label, key]) => (
+                  <div key={key}>
+                    <label style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#374151", marginBottom: 6 }}>{label}</label>
+                    <select value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                      style={{ width: "100%", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "10px 14px", fontSize: 14 }}>
+                      {HOURS.map(h => <option key={h.value} value={h.value}>{h.label}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+              {formErr && <div style={{ color: "#ef4444", fontSize: 13, marginBottom: 12, background: "#fef2f2", padding: "8px 12px", borderRadius: 8 }}>⚠️ {formErr}</div>}
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setModal(null)} style={{ flex: 1, padding: "12px", border: "1.5px solid #e5e7eb", borderRadius: 10, background: "#fff", fontWeight: 600, fontSize: 14, cursor: "pointer", color: "#374151" }}>Cancel</button>
+                <button onClick={submitBooking} style={{ flex: 2, padding: "12px", border: "none", borderRadius: 10, background: room.color, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Confirm Booking</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cancelTarget && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 28, width: 340, textAlign: "center" }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>🗑️</div>
+            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Cancel Booking?</div>
+            <div style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}>
+              <strong>{cancelTarget.title}</strong> by {cancelTarget.name}<br />{cancelTarget.start}–{cancelTarget.end}
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setCancelTarget(null)} style={{ flex: 1, padding: "11px", border: "1.5px solid #e5e7eb", borderRadius: 10, fontWeight: 600, cursor: "pointer", background: "#fff" }}>Keep</button>
+              <button onClick={cancelBooking} style={{ flex: 1, padding: "11px", border: "none", borderRadius: 10, fontWeight: 700, cursor: "pointer", background: "#ef4444", color: "#fff" }}>Cancel It</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", background: toast.type === "success" ? "#111827" : "#6366f1", color: "#fff", padding: "12px 24px", borderRadius: 40, fontWeight: 600, fontSize: 14, zIndex: 200 }}>
+          {toast.type === "success" ? "✅" : "ℹ️"} {toast.msg}
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.render(<App />, document.getElementById("root"));
+  </script>
 </body>
 </html>
