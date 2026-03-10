@@ -170,9 +170,14 @@ function App() {
     if (!form.name.trim()) return setFormErr("Please enter your name.");
     if (!form.title.trim()) return setFormErr("Please enter a meeting title.");
     if (timeToMin(form.end) <= timeToMin(form.start)) return setFormErr("End time must be after start time.");
-    const recurringId = form.recurring ? `rec_${Date.now()}` : null;
     const dates = form.recurring ? Array.from({ length: form.weeks }, (_, i) => addWeeks(selectedDate, i)) : [selectedDate];
-
+    const conflictDates = dates.filter(date =>
+      bookings.some(b => b.roomId === modal.roomId && b.date === date && overlaps(b, form))
+    );
+    if (conflictDates.length > 0) {
+      return setFormErr(`This time slot is already taken on ${conflictDates.length === 1 ? conflictDates[0] : conflictDates.length + " dates"}. Please choose a different time.`);
+    }
+    const recurringId = form.recurring ? `rec_${Date.now()}` : null;
     const newBookings = dates.map((date, i) => ({ id: Date.now() + i, roomId: modal.roomId, date, name: form.name, title: form.title, start: form.start, end: form.end, recurringId }));
     saveBookings([...bookings, ...newBookings]);
     setModal(null);
@@ -199,6 +204,7 @@ function App() {
   }
 
   const room = modal ? ROOMS.find(r => r.id === modal.roomId) : null;
+  const formConflict = modal ? bookings.find(b => b.roomId === modal.roomId && b.date === selectedDate && overlaps(b, form)) : null;
 
   return (
     <div style={{minHeight:"100vh",background:"#f8f9fc",fontFamily:"sans-serif"}}>
@@ -336,6 +342,11 @@ function App() {
                   </div>
                 ))}
               </div>
+              {formConflict && (
+                <div style={{color:"#b45309",fontSize:13,marginBottom:12,background:"#fffbeb",padding:"8px 12px",borderRadius:8,border:"1px solid #fde68a"}}>
+                  ⚠️ Conflicts with <strong>{formConflict.title}</strong> by {formConflict.name} ({formConflict.start}–{formConflict.end})
+                </div>
+              )}
               <div style={{background:"#f9fafb",borderRadius:12,padding:"14px 16px",marginBottom:12,border:"1.5px solid #e5e7eb"}}>
                 <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
                   <input type="checkbox" checked={form.recurring} onChange={e => setForm(f => ({...f,recurring:e.target.checked}))} style={{width:16,height:16,cursor:"pointer"}} />
