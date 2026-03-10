@@ -141,6 +141,8 @@ function App() {
             const info = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", { headers: { Authorization: `Bearer ${resp.access_token}` } }).then(r => r.json());
             email = info.email || "";
           } catch {}
+          // Fall back to cookie if fetch failed
+          if (!email) email = getCookie("rb_email") || "";
           // Only block if we got an email back AND it's the wrong domain
           if (email && !email.endsWith(`@${ALLOWED_DOMAIN}`)) {
             showToast(`Access denied: ${email} is not a @${ALLOWED_DOMAIN} account.`, "error");
@@ -388,26 +390,21 @@ function App() {
                       ? <div style={{color:"#9ca3af",fontSize:13,padding:"8px 0"}}>Connect calendar to see bookings</div>
                       : bks.length === 0
                         ? <div style={{color:"#9ca3af",fontSize:13,padding:"8px 0"}}>No bookings yet</div>
-                        : bks.map(b => {
-                            const isOwn = !b.fromCalendar || b.creatorEmail === userEmail;
-                            return (
-                              <div key={b.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#f9fafb",borderRadius:8,marginBottom:6,border:"1px solid #f3f4f6"}}>
-                                <div>
-                                  <div style={{fontSize:13,fontWeight:600,color:"#111827",display:"flex",alignItems:"center",gap:5}}>
-                                    {isOwn ? b.title : "🔒 Busy"}
-                                    {b.recurringId && <span style={{fontSize:10,background:"#e0e7ff",color:"#6366f1",borderRadius:10,padding:"1px 6px"}}>🔁</span>}
-                                  </div>
-                                  <div style={{fontSize:12,color:"#9ca3af"}}>{isOwn ? `${b.name} · ` : ""}{b.start}–{b.end}</div>
+                        : bks.map(b => (
+                            <div key={b.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#f9fafb",borderRadius:8,marginBottom:6,border:"1px solid #f3f4f6"}}>
+                              <div>
+                                <div style={{fontSize:13,fontWeight:600,color:"#111827",display:"flex",alignItems:"center",gap:5}}>
+                                  {b.title}
+                                  {b.recurringId && <span style={{fontSize:10,background:"#e0e7ff",color:"#6366f1",borderRadius:10,padding:"1px 6px"}}>🔁</span>}
                                 </div>
-                                {isOwn && (
-                                  <div style={{display:"flex",gap:4}}>
-                                    <button onClick={() => openEdit(b)} style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,cursor:"pointer",color:"#3b82f6",fontSize:12,padding:"4px 8px",fontWeight:600}}>Edit</button>
-                                    <button onClick={() => openCancel(b)} style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:6,cursor:"pointer",color:"#ef4444",fontSize:12,padding:"4px 8px",fontWeight:600}}>Delete</button>
-                                  </div>
-                                )}
+                                <div style={{fontSize:12,color:"#9ca3af"}}>{b.name} · {b.start}–{b.end}</div>
                               </div>
-                            );
-                          })
+                              <div style={{display:"flex",gap:4}}>
+                                <button onClick={() => openEdit(b)} style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,cursor:"pointer",color:"#3b82f6",fontSize:12,padding:"4px 8px",fontWeight:600}}>Edit</button>
+                                <button onClick={() => openCancel(b)} style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:6,cursor:"pointer",color:"#ef4444",fontSize:12,padding:"4px 8px",fontWeight:600}}>Delete</button>
+                              </div>
+                            </div>
+                          ))
                     }
                     <button onClick={() => openBook(r.id)} style={{width:"100%",marginTop:12,padding:"10px",background:r.color,color:"#fff",border:"none",borderRadius:10,fontWeight:600,fontSize:14,cursor:"pointer"}}>+ Book Room</button>
                   </div>
@@ -434,23 +431,18 @@ function App() {
                   const isBusy = dayBookings(r.id).some(b => b.start < slot.value && b.end > slot.value);
                   return (
                     <div key={r.id} style={{padding:"3px 4px",background:i%2===0?"#fff":"#fafafa",borderLeft:"1px solid #f3f4f6",minHeight:30}}>
-                      {bk && (() => {
-                        const isOwn = !bk.fromCalendar || bk.creatorEmail === userEmail;
-                        return (
-                          <div style={{background:r.color,color:"#fff",borderRadius:6,padding:"3px 5px",fontSize:10,fontWeight:600,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                            <div>
-                              <div>{isOwn ? bk.title : "🔒 Busy"} {bk.recurringId && "🔁"}</div>
-                              <div style={{opacity:0.8}}>–{bk.end}</div>
-                            </div>
-                            {isOwn && (
-                              <div style={{display:"flex",gap:2}}>
-                                <button onClick={() => openEdit(bk)} style={{background:"rgba(255,255,255,0.25)",border:"none",borderRadius:3,color:"#fff",cursor:"pointer",fontSize:9,padding:"2px 4px"}}>✎</button>
-                                <button onClick={() => openCancel(bk)} style={{background:"rgba(0,0,0,0.2)",border:"none",borderRadius:3,color:"#fff",cursor:"pointer",fontSize:9,padding:"2px 4px"}}>✕</button>
-                              </div>
-                            )}
+                      {bk && (
+                        <div style={{background:r.color,color:"#fff",borderRadius:6,padding:"3px 5px",fontSize:10,fontWeight:600,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                          <div>
+                            <div>{bk.title} {bk.recurringId && "🔁"}</div>
+                            <div style={{opacity:0.8}}>{bk.name} · –{bk.end}</div>
                           </div>
-                        );
-                      })()}
+                          <div style={{display:"flex",gap:2}}>
+                            <button onClick={() => openEdit(bk)} style={{background:"rgba(255,255,255,0.25)",border:"none",borderRadius:3,color:"#fff",cursor:"pointer",fontSize:9,padding:"2px 4px"}}>✎</button>
+                            <button onClick={() => openCancel(bk)} style={{background:"rgba(0,0,0,0.2)",border:"none",borderRadius:3,color:"#fff",cursor:"pointer",fontSize:9,padding:"2px 4px"}}>✕</button>
+                          </div>
+                        </div>
+                      )}
                       {isBusy && !bk && <div style={{height:"100%",background:`${r.color}20`,borderLeft:`3px solid ${r.color}55`}} />}
                       {!bk && !isBusy && (
                         <button onClick={() => openBook(r.id, slot.value)} style={{background:"none",border:"1px dashed #e5e7eb",borderRadius:6,width:"100%",height:24,cursor:"pointer",color:"#d1d5db",fontSize:9}}>+ Book</button>
