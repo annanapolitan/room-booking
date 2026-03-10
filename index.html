@@ -70,7 +70,7 @@ function addWeeks(dateStr, n) {
 function toGCalDateTime(date, time) { return `${date}T${time}:00`; }
 
 function parseCalendarEvent(event) {
-  const parts    = (event.summary || "").split(" — ");
+  const parts    = (event.summary || "").split(/ [—–-] /);
   const title    = parts[0] || event.summary;
   const room     = ROOMS.find(r => r.name === parts[1]);
   const nameMatch = (event.description || "").match(/Booked by (.+) via RoomBook/);
@@ -219,7 +219,7 @@ function App() {
       if (!res) { fetchingRef.current = false; setCalLoading(false); return; }
       const data = await res.json();
       const parsed = (data.items || [])
-        .filter(e => e.summary && (e.description || "").includes("via RoomBook"))
+        .filter(e => e.summary && e.start?.dateTime)
         .map(parseCalendarEvent)
         .filter(b => b.roomId);
       setCalendarEvents(parsed);
