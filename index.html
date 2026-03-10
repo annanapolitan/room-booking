@@ -216,11 +216,23 @@ function App() {
 
   function openCancel(b) { setCancelTarget(b); setCancelMode("single"); }
 
-  function cancelBooking() {
-    const next = cancelMode === "all" && cancelTarget.recurringId
-      ? bookings.filter(b => b.recurringId !== cancelTarget.recurringId)
-      : bookings.filter(b => b.id !== cancelTarget.id);
-    saveBookings(next);
+  async function cancelBooking() {
+    if (cancelTarget.fromCalendar) {
+      try {
+        await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events/${cancelTarget.id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        await fetchCalendarEvents();
+      } catch {
+        showToast("Failed to delete from calendar.", "info");
+      }
+    } else {
+      const next = cancelMode === "all" && cancelTarget.recurringId
+        ? bookings.filter(b => b.recurringId !== cancelTarget.recurringId)
+        : bookings.filter(b => b.id !== cancelTarget.id);
+      saveBookings(next);
+    }
     setCancelTarget(null);
     showToast("Booking deleted.", "info");
   }
@@ -312,7 +324,7 @@ function App() {
                               </div>
                               <div style={{fontSize:12,color:"#9ca3af"}}>{b.name} · {b.start}–{b.end}</div>
                             </div>
-                            {!b.fromCalendar && <button onClick={() => openCancel(b)} style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:6,cursor:"pointer",color:"#ef4444",fontSize:12,padding:"4px 8px",fontWeight:600}}>Delete</button>}
+                            <button onClick={() => openCancel(b)} style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:6,cursor:"pointer",color:"#ef4444",fontSize:12,padding:"4px 8px",fontWeight:600}}>Delete</button>
                           </div>
                         ))
                     }
@@ -347,7 +359,7 @@ function App() {
                             <div>{bk.title} {bk.recurringId && "🔁"}</div>
                             <div style={{opacity:0.8}}>{bk.name} · –{bk.end}</div>
                           </div>
-                          {!bk.fromCalendar && <button onClick={() => openCancel(bk)} style={{background:"rgba(0,0,0,0.2)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:10,padding:"2px 5px"}}>✕</button>}
+                          <button onClick={() => openCancel(bk)} style={{background:"rgba(0,0,0,0.2)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:10,padding:"2px 5px"}}>✕</button>
                         </div>
                       )}
                       {isBusy && !bk && <div style={{height:"100%",background:`${r.color}20`,borderLeft:`3px solid ${r.color}55`}} />}
