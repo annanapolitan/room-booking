@@ -16,6 +16,7 @@
 
 const CLIENT_ID = "491345627943-6d8s0f4k4c6hkhvqrks4v2lp1jvpfi7b.apps.googleusercontent.com";
 const SCOPES = "https://www.googleapis.com/auth/calendar.events";
+const CALENDAR_ID = "c_9c2567754ac4e44e70a7eed42c314fade369d897910fd7fe34cab07c2eb76fbd@group.calendar.google.com";
 
 const ROOMS = [
   { id: "small-conf", name: "Small Conference", capacity: 4, amenities: ["TV", "Whiteboard", "Video Call"], color: "#6366f1", icon: "🪑" },
@@ -45,9 +46,22 @@ function addWeeks(dateStr, n) {
   d.setDate(d.getDate() + n * 7);
   return d.toISOString().split("T")[0];
 }
+function toGCalDateTime(date, time) { return `${date}T${time}:00`; }
 
-function toGCalDateTime(date, time) {
-  return `${date}T${time}:00`;
+function parseCalendarEvent(event) {
+  const parts = (event.summary || "").split(" — ");
+  const title = parts[0] || event.summary;
+  const roomName = parts[1] || "";
+  const room = ROOMS.find(r => r.name === roomName);
+  const nameMatch = (event.description || "").match(/Booked by (.+) via RoomBook/);
+  const name = nameMatch ? nameMatch[1] : "Unknown";
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const startDT = new Date(event.start.dateTime);
+  const endDT = new Date(event.end.dateTime);
+  const date = startDT.toLocaleDateString("en-CA", { timeZone: tz });
+  const start = startDT.toLocaleTimeString("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit" });
+  const end = endDT.toLocaleTimeString("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit" });
+  return { id: event.id, roomId: room?.id, date, name, title, start, end, recurringId: null, fromCalendar: true };
 }
 
 const STORAGE_KEY = "room_bookings_v3";
@@ -56,17 +70,19 @@ function App() {
   const [bookings, setBookings] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
   });
+  const [calendarEvents, setCalendarEvents] = React.useState([]);
+  const [calendarLoading, setCalendarLoading] = React.useState(false);
   const [view, setView] = React.useState("grid");
   const [selectedDate, setSelectedDate] = React.useState(todayStr());
   const [modal, setModal] = React.useState(null);
-  const [form, setForm] = React.useState({ name: "", title: "", start: "09:30", end: "10:30", recurring: false, weeks: 4 });
+  const [form, setForm] = React.useState({ name: "", title: "", start: "09:30", end: "10:30", recurring: false, weeks: 4, addToGCal: true });
   const [formErr, setFormErr] = React.useState("");
   const [toast, setToast] = React.useState(null);
   const [cancelTarget, setCancelTarget] = React.useState(null);
   const [cancelMode, setCancelMode] = React.useState("single");
   const [accessToken, setAccessToken] = React.useState(null);
   const [userEmail, setUserEmail] = React.useState(null);
-  const [gcalStatus, setGcalStatus] = React.useState("idle"); // idle | loading | success | error
+  const [gcalStatus, setGcalStatus] = React.useState("idle");
   const tokenClientRef = React.useRef(null);
   const pendingBookingsRef = React.useRef(null);
 
@@ -79,10 +95,10 @@ function App() {
           callback: (resp) => {
             if (resp.access_token) {
               setAccessToken(resp.access_token);
-              // Fetch user email
               fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
                 headers: { Authorization: `Bearer ${resp.access_token}` }
               }).then(r => r.json()).then(info => setUserEmail(info.email)).catch(() => {});
+              fetchCalendarEvents(resp.access_token);
               if (pendingBookingsRef.current) {
                 addToGCal(pendingBookingsRef.current, resp.access_token);
                 pendingBookingsRef.current = null;
@@ -96,21 +112,32 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
+  async function fetchCalendarEvents(token) {
+    const tok = token || accessToken;
+    if (!tok) return;
+    setCalendarLoading(true);
+    try {
+      const timeMin = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const timeMax = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+      const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=2500`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${tok}` } });
+      const data = await res.json();
+      const parsed = (data.items || [])
+        .filter(e => e.summary && (e.description || "").includes("via RoomBook"))
+        .map(parseCalendarEvent)
+        .filter(b => b.roomId);
+      setCalendarEvents(parsed);
+    } catch {}
+    setCalendarLoading(false);
+  }
+
   async function addToGCal(bookingsList, token) {
     setGcalStatus("loading");
     const tok = token || accessToken;
-    let email = userEmail;
-    if (!email) {
-      try {
-        const info = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json());
-        email = info.email;
-        setUserEmail(email);
-      } catch {}
-    }
     try {
       for (const b of bookingsList) {
         const room = ROOMS.find(r => r.id === b.roomId);
-        await fetch("https://www.googleapis.com/calendar/v3/calendars/c_9c2567754ac4e44e70a7eed42c314fade369d897910fd7fe34cab07c2eb76fbd%40group.calendar.google.com/events", {
+        await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events`, {
           method: "POST",
           headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -122,25 +149,24 @@ function App() {
         });
       }
       setGcalStatus("success");
-      showToast(`Added to Google Calendar! 📅`, "success");
+      showToast("Added to Google Calendar! 📅", "success");
+      await fetchCalendarEvents(tok);
     } catch {
       setGcalStatus("error");
-      showToast(`Calendar sync failed: ${err.message}`, "info");
+      showToast("Calendar sync failed.", "info");
     }
     setTimeout(() => setGcalStatus("idle"), 3000);
   }
 
+  function connectGCal() {
+    if (!tokenClientRef.current) { showToast("Google Calendar not ready yet, try again.", "info"); return; }
+    tokenClientRef.current.requestAccessToken();
+  }
+
   function requestGCalAndAdd(bookingsList) {
-    if (!tokenClientRef.current) {
-      showToast("Google Calendar not ready yet, try again.", "info");
-      return;
-    }
-    if (accessToken) {
-      addToGCal(bookingsList, accessToken);
-    } else {
-      pendingBookingsRef.current = bookingsList;
-      tokenClientRef.current.requestAccessToken();
-    }
+    if (!tokenClientRef.current) { showToast("Google Calendar not ready yet, try again.", "info"); return; }
+    if (accessToken) { addToGCal(bookingsList, accessToken); }
+    else { pendingBookingsRef.current = bookingsList; tokenClientRef.current.requestAccessToken(); }
   }
 
   function saveBookings(next) {
@@ -148,8 +174,10 @@ function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   }
 
+  function allBookings() { return accessToken ? calendarEvents : bookings; }
+
   function dayBookings(roomId) {
-    return bookings.filter(b => b.roomId === roomId && b.date === selectedDate);
+    return allBookings().filter(b => b.roomId === roomId && b.date === selectedDate);
   }
 
   function showToast(msg, type = "success") {
@@ -158,6 +186,7 @@ function App() {
   }
 
   function openBook(roomId, startOverride) {
+    if (!accessToken) { connectGCal(); return; }
     const start = startOverride || "09:30";
     const startIdx = HOURS.findIndex(h => h.value === start);
     const end = HOURS[Math.min(startIdx + 4, HOURS.length - 1)].value;
@@ -172,7 +201,7 @@ function App() {
     if (timeToMin(form.end) <= timeToMin(form.start)) return setFormErr("End time must be after start time.");
     const dates = form.recurring ? Array.from({ length: form.weeks }, (_, i) => addWeeks(selectedDate, i)) : [selectedDate];
     const conflictDates = dates.filter(date =>
-      bookings.some(b => b.roomId === modal.roomId && b.date === date && overlaps(b, form))
+      allBookings().some(b => b.roomId === modal.roomId && b.date === date && overlaps(b, form))
     );
     if (conflictDates.length > 0) {
       return setFormErr(`This time slot is already taken on ${conflictDates.length === 1 ? conflictDates[0] : conflictDates.length + " dates"}. Please choose a different time.`);
@@ -204,7 +233,8 @@ function App() {
   }
 
   const room = modal ? ROOMS.find(r => r.id === modal.roomId) : null;
-  const formConflict = modal ? bookings.find(b => b.roomId === modal.roomId && b.date === selectedDate && overlaps(b, form)) : null;
+  const formConflict = modal ? allBookings().find(b => b.roomId === modal.roomId && b.date === selectedDate && overlaps(b, form)) : null;
+  const totalDayBookings = allBookings().filter(b => b.date === selectedDate).length;
 
   return (
     <div style={{minHeight:"100vh",background:"#f8f9fc",fontFamily:"sans-serif"}}>
@@ -214,7 +244,16 @@ function App() {
           <span style={{color:"#fff",fontWeight:700,fontSize:18}}>RoomBook</span>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          {accessToken && <span style={{color:"#4ade80",fontSize:12,fontWeight:600}}>📅 Google Calendar connected</span>}
+          {accessToken
+            ? <>
+                <span style={{color:"#4ade80",fontSize:12,fontWeight:600}}>📅 {userEmail || "Google Calendar connected"}</span>
+                {calendarLoading
+                  ? <span style={{color:"#9ca3af",fontSize:12}}>Syncing...</span>
+                  : <button onClick={() => fetchCalendarEvents()} style={{padding:"6px 10px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,background:"#1f2937",color:"#9ca3af"}} title="Refresh bookings">🔄</button>
+                }
+              </>
+            : <button onClick={connectGCal} style={{padding:"6px 14px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:"#4ade80",color:"#111827"}}>📅 Connect Google Calendar</button>
+          }
           {["grid","timeline"].map(v => (
             <button key={v} onClick={() => setView(v)} style={{padding:"6px 14px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:view===v?"#6366f1":"#1f2937",color:view===v?"#fff":"#9ca3af"}}>
               {v==="grid"?"🃏 Cards":"📅 Timeline"}
@@ -223,11 +262,18 @@ function App() {
         </div>
       </div>
 
+      {!accessToken && (
+        <div style={{background:"#fffbeb",borderBottom:"1px solid #fde68a",padding:"12px 28px",display:"flex",alignItems:"center",gap:12}}>
+          <span style={{fontSize:14,color:"#92400e"}}>⚠️ Connect Google Calendar to see everyone's bookings and book a room.</span>
+          <button onClick={connectGCal} style={{padding:"6px 16px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:"#f59e0b",color:"#fff"}}>Connect Now</button>
+        </div>
+      )}
+
       <div style={{background:"#fff",borderBottom:"1px solid #e5e7eb",padding:"14px 28px",display:"flex",alignItems:"center",gap:16}}>
         <span style={{fontWeight:600,color:"#374151",fontSize:14}}>📆 Date</span>
         <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{border:"1.5px solid #e5e7eb",borderRadius:8,padding:"6px 12px",fontSize:14,color:"#111827",cursor:"pointer"}} />
         <button onClick={() => setSelectedDate(todayStr())} style={{background:"#f3f4f6",border:"none",borderRadius:8,padding:"6px 14px",fontSize:13,fontWeight:600,color:"#6366f1",cursor:"pointer"}}>Today</button>
-        <span style={{marginLeft:"auto",color:"#9ca3af",fontSize:13}}>{bookings.filter(b => b.date === selectedDate).length} booking(s) on this day</span>
+        <span style={{marginLeft:"auto",color:"#9ca3af",fontSize:13}}>{totalDayBookings} booking(s) on this day</span>
       </div>
 
       <div style={{padding:"28px"}}>
@@ -253,20 +299,22 @@ function App() {
                   </div>
                   <div style={{padding:"16px 22px"}}>
                     <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:8}}>SCHEDULE · 9:30 AM – 6:00 PM</div>
-                    {bks.length === 0
-                      ? <div style={{color:"#9ca3af",fontSize:13,padding:"8px 0"}}>No bookings yet</div>
-                      : bks.map(b => (
-                        <div key={b.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#f9fafb",borderRadius:8,marginBottom:6,border:"1px solid #f3f4f6"}}>
-                          <div>
-                            <div style={{fontSize:13,fontWeight:600,color:"#111827",display:"flex",alignItems:"center",gap:5}}>
-                              {b.title}
-                              {b.recurringId && <span style={{fontSize:10,background:"#e0e7ff",color:"#6366f1",borderRadius:10,padding:"1px 6px"}}>🔁 Weekly</span>}
+                    {!accessToken
+                      ? <div style={{color:"#9ca3af",fontSize:13,padding:"8px 0"}}>Connect calendar to see bookings</div>
+                      : bks.length === 0
+                        ? <div style={{color:"#9ca3af",fontSize:13,padding:"8px 0"}}>No bookings yet</div>
+                        : bks.map(b => (
+                          <div key={b.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#f9fafb",borderRadius:8,marginBottom:6,border:"1px solid #f3f4f6"}}>
+                            <div>
+                              <div style={{fontSize:13,fontWeight:600,color:"#111827",display:"flex",alignItems:"center",gap:5}}>
+                                {b.title}
+                                {b.recurringId && <span style={{fontSize:10,background:"#e0e7ff",color:"#6366f1",borderRadius:10,padding:"1px 6px"}}>🔁 Weekly</span>}
+                              </div>
+                              <div style={{fontSize:12,color:"#9ca3af"}}>{b.name} · {b.start}–{b.end}</div>
                             </div>
-                            <div style={{fontSize:12,color:"#9ca3af"}}>{b.name} · {b.start}–{b.end}</div>
+                            {!b.fromCalendar && <button onClick={() => openCancel(b)} style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:6,cursor:"pointer",color:"#ef4444",fontSize:12,padding:"4px 8px",fontWeight:600}}>Delete</button>}
                           </div>
-                          <button onClick={() => openCancel(b)} style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:6,cursor:"pointer",color:"#ef4444",fontSize:12,padding:"4px 8px",fontWeight:600}}>Delete</button>
-                        </div>
-                      ))
+                        ))
                     }
                     <button onClick={() => openBook(r.id)} style={{width:"100%",marginTop:12,padding:"10px",background:r.color,color:"#fff",border:"none",borderRadius:10,fontWeight:600,fontSize:14,cursor:"pointer"}}>+ Book Room</button>
                   </div>
@@ -299,7 +347,7 @@ function App() {
                             <div>{bk.title} {bk.recurringId && "🔁"}</div>
                             <div style={{opacity:0.8}}>{bk.name} · –{bk.end}</div>
                           </div>
-                          <button onClick={() => openCancel(bk)} style={{background:"rgba(0,0,0,0.2)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:10,padding:"2px 5px"}}>✕</button>
+                          {!bk.fromCalendar && <button onClick={() => openCancel(bk)} style={{background:"rgba(0,0,0,0.2)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:10,padding:"2px 5px"}}>✕</button>}
                         </div>
                       )}
                       {isBusy && !bk && <div style={{height:"100%",background:`${r.color}20`,borderLeft:`3px solid ${r.color}55`}} />}
@@ -366,7 +414,7 @@ function App() {
               <div style={{background:"#f0fdf4",borderRadius:12,padding:"12px 16px",marginBottom:16,border:"1.5px solid #bbf7d0"}}>
                 <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
                   <input type="checkbox" checked={form.addToGCal} onChange={e => setForm(f => ({...f,addToGCal:e.target.checked}))} style={{width:16,height:16,cursor:"pointer"}} />
-                  <span style={{fontWeight:600,fontSize:13,color:"#15803d"}}>📅 Add to my Google Calendar</span>
+                  <span style={{fontWeight:600,fontSize:13,color:"#15803d"}}>📅 Add to shared Google Calendar</span>
                 </label>
               </div>
               {formErr && <div style={{color:"#ef4444",fontSize:13,marginBottom:12,background:"#fef2f2",padding:"8px 12px",borderRadius:8}}>⚠️ {formErr}</div>}
