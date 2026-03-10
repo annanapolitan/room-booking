@@ -18,7 +18,7 @@
   <script type="text/babel">
 
 const CLIENT_ID      = "491345627943-6d8s0f4k4c6hkhvqrks4v2lp1jvpfi7b.apps.googleusercontent.com";
-const SCOPES         = "https://www.googleapis.com/auth/calendar.events";
+const SCOPES         = "https://www.googleapis.com/auth/calendar.events email profile";
 const CALENDAR_ID    = "c_9c2567754ac4e44e70a7eed42c314fade369d897910fd7fe34cab07c2eb76fbd@group.calendar.google.com";
 const ALLOWED_DOMAIN = "useintegral.com";
 
@@ -184,10 +184,16 @@ function App() {
       headers: { Authorization: `Bearer ${tok}`, ...options.headers },
     });
     if (res.status === 401) {
-      setAccessToken(null); tokenRef.current = null;
-      setUserEmail(null); setCalendarEvents([]);
-      deleteCookie("rb_email");
-      showToast("Session expired. Please sign in again.", "info");
+      // Token expired — silently get a new one using the saved cookie (no popup)
+      const saved = getCookie("rb_email");
+      if (saved && tokenClient.current) {
+        tokenClient.current.requestAccessToken({ prompt: "", hint: saved });
+      } else {
+        setAccessToken(null); tokenRef.current = null;
+        setUserEmail(null); setCalendarEvents([]);
+        deleteCookie("rb_email");
+        showToast("Session expired. Please sign in again.", "info");
+      }
       return null;
     }
     if (res.status === 403) {
@@ -216,8 +222,6 @@ function App() {
         .filter(e => e.summary && (e.description || "").includes("via RoomBook"))
         .map(parseCalendarEvent)
         .filter(b => b.roomId);
-      console.log("📅 Raw calendar items:", data.items?.length, data.items?.map(e => ({ summary: e.summary, description: e.description, start: e.start?.dateTime })));
-      console.log("📅 Parsed bookings:", parsed);
       setCalendarEvents(parsed);
     } catch {
       showToast("Failed to load bookings. Check your connection.", "info");
