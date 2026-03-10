@@ -136,20 +136,21 @@ function App() {
         scope: SCOPES,
         callback: async (resp) => {
           if (!resp.access_token) return;
+          let email = "";
           try {
-            const info  = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", { headers: { Authorization: `Bearer ${resp.access_token}` } }).then(r => r.json());
-            const email = info.email || "";
-            if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
-              showToast(`Only @${ALLOWED_DOMAIN} accounts are allowed.`, "error");
-              deleteCookie("rb_email");
-              return;
-            }
-            setAccessToken(resp.access_token);
-            setUserEmail(email);
-            setCookie("rb_email", email, 30);
-            fetchCalendarEvents(resp.access_token);
-            if (pendingRef.current) { addToGCal(pendingRef.current, resp.access_token, true); pendingRef.current = null; }
+            const info = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", { headers: { Authorization: `Bearer ${resp.access_token}` } }).then(r => r.json());
+            email = info.email || "";
           } catch {}
+          // Only block if we got an email back AND it's the wrong domain
+          if (email && !email.endsWith(`@${ALLOWED_DOMAIN}`)) {
+            showToast(`Access denied: ${email} is not a @${ALLOWED_DOMAIN} account.`, "error");
+            deleteCookie("rb_email");
+            return;
+          }
+          setAccessToken(resp.access_token);
+          if (email) { setUserEmail(email); setCookie("rb_email", email, 30); }
+          fetchCalendarEvents(resp.access_token);
+          if (pendingRef.current) { addToGCal(pendingRef.current, resp.access_token, true); pendingRef.current = null; }
         },
       });
 
