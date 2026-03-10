@@ -112,7 +112,7 @@ function App() {
       showToast(`Added to Google Calendar! 📅`, "success");
     } catch {
       setGcalStatus("error");
-      showToast("Booking saved, but Google Calendar sync failed.", "info");
+      showToast(`Calendar sync failed: ${err.message}`, "info");
     }
     setTimeout(() => setGcalStatus("idle"), 3000);
   }
