@@ -65,6 +65,7 @@ function App() {
   const [cancelTarget, setCancelTarget] = React.useState(null);
   const [cancelMode, setCancelMode] = React.useState("single");
   const [accessToken, setAccessToken] = React.useState(null);
+  const [userEmail, setUserEmail] = React.useState(null);
   const [gcalStatus, setGcalStatus] = React.useState("idle"); // idle | loading | success | error
   const tokenClientRef = React.useRef(null);
   const pendingBookingsRef = React.useRef(null);
@@ -78,6 +79,10 @@ function App() {
           callback: (resp) => {
             if (resp.access_token) {
               setAccessToken(resp.access_token);
+              // Fetch user email
+              fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+                headers: { Authorization: `Bearer ${resp.access_token}` }
+              }).then(r => r.json()).then(info => setUserEmail(info.email)).catch(() => {});
               if (pendingBookingsRef.current) {
                 addToGCal(pendingBookingsRef.current, resp.access_token);
                 pendingBookingsRef.current = null;
@@ -94,6 +99,14 @@ function App() {
   async function addToGCal(bookingsList, token) {
     setGcalStatus("loading");
     const tok = token || accessToken;
+    let email = userEmail;
+    if (!email) {
+      try {
+        const info = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json());
+        email = info.email;
+        setUserEmail(email);
+      } catch {}
+    }
     try {
       for (const b of bookingsList) {
         const room = ROOMS.find(r => r.id === b.roomId);
