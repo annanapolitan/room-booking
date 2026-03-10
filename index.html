@@ -310,6 +310,29 @@ function App() {
   const totalToday   = allBookings().filter(b => b.date === selectedDate).length;
 
   // ── Render ───────────────────────────────────────────────────────────────
+
+  // Gate: show login wall if not authenticated
+  if (!accessToken) {
+    return (
+      <div style={{minHeight:"100vh",background:"#111827",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif",padding:24}}>
+        <div style={{textAlign:"center",maxWidth:400}}>
+          <div style={{width:64,height:64,background:"#6366f1",borderRadius:16,display:"flex",alignItems:"center",justifyContent:"center",fontSize:36,margin:"0 auto 24px"}}>🏢</div>
+          <h1 style={{color:"#fff",fontSize:28,fontWeight:800,marginBottom:8}}>RoomBook</h1>
+          <p style={{color:"#9ca3af",fontSize:15,marginBottom:32}}>Sign in with your <strong style={{color:"#e5e7eb"}}>@{ALLOWED_DOMAIN}</strong> account to view and book rooms.</p>
+          <button onClick={connectGCal} style={{background:"#6366f1",color:"#fff",border:"none",borderRadius:12,padding:"14px 32px",fontSize:16,fontWeight:700,cursor:"pointer",width:"100%"}}>
+            Sign in with Google
+          </button>
+          <p style={{color:"#4b5563",fontSize:12,marginTop:16}}>Access restricted to {ALLOWED_DOMAIN} accounts only.</p>
+        </div>
+        {toast && (
+          <div style={{position:"fixed",bottom:28,left:"50%",transform:"translateX(-50%)",background:"#ef4444",color:"#fff",padding:"12px 24px",borderRadius:40,fontWeight:600,fontSize:14,zIndex:200}}>
+            🚫 {toast.msg}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{minHeight:"100vh",background:"#f8f9fc",fontFamily:"sans-serif"}}>
 
@@ -341,13 +364,6 @@ function App() {
         </div>
       </div>
 
-      {/* Not-logged-in banner */}
-      {!accessToken && (
-        <div style={{background:"#fffbeb",borderBottom:"1px solid #fde68a",padding:"12px 28px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-          <span style={{fontSize:14,color:"#92400e"}}>⚠️ Connect Google Calendar to see everyone's bookings and prevent double-booking.</span>
-          <button onClick={connectGCal} style={{padding:"6px 16px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:"#f59e0b",color:"#fff"}}>Connect Now</button>
-        </div>
-      )}
 
       {/* Date bar */}
       <div style={{background:"#fff",borderBottom:"1px solid #e5e7eb",padding:isMobile?"10px 16px":"14px 28px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
@@ -386,9 +402,7 @@ function App() {
                   </div>
                   <div style={{padding:"16px 22px"}}>
                     <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:8}}>SCHEDULE · 9:30 AM – 6:00 PM</div>
-                    {!accessToken
-                      ? <div style={{color:"#9ca3af",fontSize:13,padding:"8px 0"}}>Connect calendar to see bookings</div>
-                      : bks.length === 0
+                    {bks.length === 0
                         ? <div style={{color:"#9ca3af",fontSize:13,padding:"8px 0"}}>No bookings yet</div>
                         : bks.map(b => (
                             <div key={b.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#f9fafb",borderRadius:8,marginBottom:6,border:"1px solid #f3f4f6"}}>
