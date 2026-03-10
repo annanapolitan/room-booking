@@ -97,7 +97,7 @@ function App() {
     try {
       for (const b of bookingsList) {
         const room = ROOMS.find(r => r.id === b.roomId);
-        await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+        await fetch("https://www.googleapis.com/calendar/v3/calendars/c_9c2567754ac4e44e70a7eed42c314fade369d897910fd7fe34cab07c2eb76fbd%40group.calendar.google.com/events", {
           method: "POST",
           headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
           body: JSON.stringify({
