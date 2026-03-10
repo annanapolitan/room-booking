@@ -17,15 +17,16 @@
   <div id="root"></div>
   <script type="text/babel">
 
-const CLIENT_ID    = "491345627943-6d8s0f4k4c6hkhvqrks4v2lp1jvpfi7b.apps.googleusercontent.com";
-const SCOPES       = "https://www.googleapis.com/auth/calendar.events";
-const CALENDAR_ID  = "c_9c2567754ac4e44e70a7eed42c314fade369d897910fd7fe34cab07c2eb76fbd@group.calendar.google.com";
+const CLIENT_ID      = "491345627943-6d8s0f4k4c6hkhvqrks4v2lp1jvpfi7b.apps.googleusercontent.com";
+const SCOPES         = "https://www.googleapis.com/auth/calendar.events";
+const CALENDAR_ID    = "c_9c2567754ac4e44e70a7eed42c314fade369d897910fd7fe34cab07c2eb76fbd@group.calendar.google.com";
 const ALLOWED_DOMAIN = "useintegral.com";
 
-// ── Cookie helpers ──────────────────────────────────────────────────────────
+// ── Cookie helpers ───────────────────────────────────────────────────────────
+// Secure flag ensures cookie only travels over HTTPS, never plain HTTP
 function setCookie(name, value, days) {
   const exp = new Date(Date.now() + days * 864e5).toUTCString();
-  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${exp}; path=/; SameSite=Strict`;
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${exp}; path=/; SameSite=Strict; Secure`;
 }
 function getCookie(name) {
   return document.cookie.split("; ").reduce((r, v) => {
@@ -34,15 +35,15 @@ function getCookie(name) {
   }, null);
 }
 function deleteCookie(name) {
-  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; Secure`;
 }
 
-// ── Room & time config ──────────────────────────────────────────────────────
+// ── Room & time config ───────────────────────────────────────────────────────
 const ROOMS = [
-  { id: "small-conf",  name: "Small Conference", capacity: 4,  amenities: ["TV", "Whiteboard", "Video Call"],                  color: "#6366f1", icon: "🪑" },
-  { id: "large-conf",  name: "Large Conference", capacity: 10, amenities: ["Projector", "Whiteboard", "Video Call", "Phone"],  color: "#0ea5e9", icon: "🏛️" },
-  { id: "phone-booth", name: "Phone Booth",       capacity: 1,  amenities: ["Phone", "Video Call"],                             color: "#10b981", icon: "📞" },
-  { id: "small-office",name: "Small Office",      capacity: 1,  amenities: ["Desk", "Monitor"],                                color: "#f59e0b", icon: "🚪" },
+  { id: "small-conf",   name: "Small Conference", capacity: 4,  amenities: ["TV", "Whiteboard", "Video Call"],                 color: "#6366f1", icon: "🪑" },
+  { id: "large-conf",   name: "Large Conference", capacity: 10, amenities: ["Projector", "Whiteboard", "Video Call", "Phone"], color: "#0ea5e9", icon: "🏛️" },
+  { id: "phone-booth",  name: "Phone Booth",       capacity: 1,  amenities: ["Phone", "Video Call"],                            color: "#10b981", icon: "📞" },
+  { id: "small-office", name: "Small Office",      capacity: 1,  amenities: ["Desk", "Monitor"],                               color: "#f59e0b", icon: "🚪" },
 ];
 
 const HOURS = (() => {
@@ -57,7 +58,7 @@ const HOURS = (() => {
   return slots;
 })();
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 function todayStr() { return new Date().toISOString().split("T")[0]; }
 function timeToMin(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
 function overlaps(a, b) { return timeToMin(a.start) < timeToMin(b.end) && timeToMin(a.end) > timeToMin(b.start); }
@@ -69,31 +70,27 @@ function addWeeks(dateStr, n) {
 function toGCalDateTime(date, time) { return `${date}T${time}:00`; }
 
 function parseCalendarEvent(event) {
-  const parts  = (event.summary || "").split(" — ");
-  const title  = parts[0] || event.summary;
-  const room   = ROOMS.find(r => r.name === parts[1]);
+  const parts    = (event.summary || "").split(" — ");
+  const title    = parts[0] || event.summary;
+  const room     = ROOMS.find(r => r.name === parts[1]);
   const nameMatch = (event.description || "").match(/Booked by (.+) via RoomBook/);
-  const name   = nameMatch ? nameMatch[1] : "Unknown";
-  const tz     = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const startDT = new Date(event.start.dateTime);
-  const endDT   = new Date(event.end.dateTime);
+  const name     = nameMatch ? nameMatch[1] : "Unknown";
+  const tz       = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const startDT  = new Date(event.start.dateTime);
+  const endDT    = new Date(event.end.dateTime);
   return {
-    id: event.id,
-    roomId: room?.id,
-    date:  startDT.toLocaleDateString("en-CA",  { timeZone: tz }),
-    start: startDT.toLocaleTimeString("en-GB",  { timeZone: tz, hour: "2-digit", minute: "2-digit" }),
-    end:   endDT.toLocaleTimeString("en-GB",    { timeZone: tz, hour: "2-digit", minute: "2-digit" }),
-    name, title, recurringId: null,
-    fromCalendar: true,
+    id:           event.id,
+    roomId:       room?.id,
+    date:         startDT.toLocaleDateString("en-CA", { timeZone: tz }),
+    start:        startDT.toLocaleTimeString("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit" }),
+    end:          endDT.toLocaleTimeString("en-GB",   { timeZone: tz, hour: "2-digit", minute: "2-digit" }),
+    name, title, recurringId: null, fromCalendar: true,
     creatorEmail: event.creator?.email || null,
   };
 }
 
-const STORAGE_KEY = "room_bookings_v3";
-
-// ── App ──────────────────────────────────────────────────────────────────────
+// ── App ───────────────────────────────────────────────────────────────────────
 function App() {
-  const [bookings,       setBookings]       = React.useState(() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; } });
   const [calendarEvents, setCalendarEvents] = React.useState([]);
   const [calLoading,     setCalLoading]     = React.useState(false);
   const [view,           setView]           = React.useState("grid");
@@ -102,14 +99,21 @@ function App() {
   const [editTarget,     setEditTarget]     = React.useState(null);
   const [form,           setForm]           = React.useState({ name: "", title: "", start: "09:30", end: "10:30", recurring: false, weeks: 4, addToPersonal: true });
   const [formErr,        setFormErr]        = React.useState("");
+  const [submitting,     setSubmitting]     = React.useState(false);  // prevents double-submit
   const [toast,          setToast]          = React.useState(null);
   const [cancelTarget,   setCancelTarget]   = React.useState(null);
   const [cancelMode,     setCancelMode]     = React.useState("single");
   const [accessToken,    setAccessToken]    = React.useState(null);
   const [userEmail,      setUserEmail]      = React.useState(null);
   const [isMobile,       setIsMobile]       = React.useState(window.innerWidth < 640);
-  const tokenClientRef   = React.useRef(null);
-  const pendingRef       = React.useRef(null);
+
+  const tokenRef     = React.useRef(null);  // mirrors accessToken for use inside async fns
+  const tokenClient  = React.useRef(null);
+  const fetchingRef  = React.useRef(false); // prevents concurrent calendar fetches
+  const pendingRef   = React.useRef(null);
+
+  // Keep tokenRef in sync with state so async callbacks always use the latest token
+  React.useEffect(() => { tokenRef.current = accessToken; }, [accessToken]);
 
   // Mobile resize listener
   React.useEffect(() => {
@@ -118,7 +122,7 @@ function App() {
     return () => window.removeEventListener("resize", handler);
   }, []);
 
-  // Auto-refresh every 60 seconds when logged in
+  // Auto-refresh every 60 seconds — fetchingRef prevents overlapping requests
   React.useEffect(() => {
     if (!accessToken) return;
     const id = setInterval(() => fetchCalendarEvents(), 60000);
@@ -131,171 +135,233 @@ function App() {
       if (!window.google?.accounts) return;
       clearInterval(interval);
 
-      tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
+      tokenClient.current = window.google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
         callback: async (resp) => {
           if (!resp.access_token) return;
+
+          // Get user email — fall back to cookie if the network call fails
           let email = "";
           try {
-            const info = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", { headers: { Authorization: `Bearer ${resp.access_token}` } }).then(r => r.json());
+            const info = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+              headers: { Authorization: `Bearer ${resp.access_token}` },
+            }).then(r => r.json());
             email = info.email || "";
           } catch {}
-          // Fall back to cookie if fetch failed
           if (!email) email = getCookie("rb_email") || "";
-          // Only block if we got an email back AND it's the wrong domain
+
+          // Block non-company accounts (only if we successfully resolved an email)
           if (email && !email.endsWith(`@${ALLOWED_DOMAIN}`)) {
             showToast(`Access denied: ${email} is not a @${ALLOWED_DOMAIN} account.`, "error");
             deleteCookie("rb_email");
             return;
           }
+
+          tokenRef.current = resp.access_token;
           setAccessToken(resp.access_token);
           if (email) { setUserEmail(email); setCookie("rb_email", email, 30); }
           fetchCalendarEvents(resp.access_token);
-          if (pendingRef.current) { addToGCal(pendingRef.current, resp.access_token, true); pendingRef.current = null; }
+          if (pendingRef.current) {
+            addToGCal(pendingRef.current, resp.access_token, true);
+            pendingRef.current = null;
+          }
         },
       });
 
-      // Auto-login from cookie
+      // Silently re-auth from saved cookie — no popup if consent already granted
       const saved = getCookie("rb_email");
-      if (saved) tokenClientRef.current.requestAccessToken({ prompt: "", hint: saved });
+      if (saved) tokenClient.current.requestAccessToken({ prompt: "", hint: saved });
     }, 300);
     return () => clearInterval(interval);
   }, []);
 
-  // ── Calendar fetch ──────────────────────────────────────────────────────
+  // ── Calendar API wrapper — detects expired tokens (HTTP 401) ────────────
+  async function calFetch(url, options = {}) {
+    const tok = options._token || tokenRef.current;
+    const res = await fetch(url, {
+      ...options,
+      headers: { Authorization: `Bearer ${tok}`, ...options.headers },
+    });
+    if (res.status === 401) {
+      // Token expired — force re-login
+      setAccessToken(null);
+      tokenRef.current = null;
+      setUserEmail(null);
+      setCalendarEvents([]);
+      deleteCookie("rb_email");
+      showToast("Session expired. Please sign in again.", "info");
+      return null;
+    }
+    return res;
+  }
+
+  // ── Fetch all bookings from the shared calendar ──────────────────────────
   async function fetchCalendarEvents(token) {
-    const tok = token || accessToken;
-    if (!tok) return;
+    // Prevent concurrent fetches
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+    const tok = token || tokenRef.current;
+    if (!tok) { fetchingRef.current = false; return; }
     setCalLoading(true);
     try {
       const tMin = new Date(Date.now() - 30  * 864e5).toISOString();
       const tMax = new Date(Date.now() + 365 * 864e5).toISOString();
       const url  = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events?timeMin=${encodeURIComponent(tMin)}&timeMax=${encodeURIComponent(tMax)}&singleEvents=true&orderBy=startTime&maxResults=2500`;
-      const data = await fetch(url, { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json());
+      const res  = await calFetch(url, { _token: tok });
+      if (!res) { fetchingRef.current = false; setCalLoading(false); return; }
+      const data = await res.json();
       setCalendarEvents(
         (data.items || [])
           .filter(e => e.summary && (e.description || "").includes("via RoomBook"))
           .map(parseCalendarEvent)
           .filter(b => b.roomId)
       );
-    } catch {}
+    } catch {
+      showToast("Failed to load bookings. Check your connection.", "info");
+    }
     setCalLoading(false);
+    fetchingRef.current = false;
   }
 
-  // ── Add to Google Calendar ──────────────────────────────────────────────
+  // ── Write bookings to Google Calendar ───────────────────────────────────
   async function addToGCal(bookingsList, token, addPersonal) {
-    const tok = token || accessToken;
+    const tok = token || tokenRef.current;
     try {
       for (const b of bookingsList) {
-        const room = ROOMS.find(r => r.id === b.roomId);
+        const room  = ROOMS.find(r => r.id === b.roomId);
         const event = {
           summary:     `${b.title} — ${room.name}`,
           description: `Booked by ${b.name} via RoomBook`,
           start: { dateTime: toGCalDateTime(b.date, b.start), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
           end:   { dateTime: toGCalDateTime(b.date, b.end),   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
         };
-        // Always add to shared calendar
-        await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events`, {
-          method: "POST", headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
-          body: JSON.stringify(event),
-        });
-        // Also add to personal calendar if requested
+        // Add to shared room calendar (always)
+        const sharedRes = await calFetch(
+          `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events`,
+          { _token: tok, method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(event) }
+        );
+        if (!sharedRes) return; // 401 handled inside calFetch
+        if (!sharedRes.ok) throw new Error(`Calendar API error: ${sharedRes.status}`);
+
+        // Also add to the user's personal calendar if requested
         if (addPersonal) {
-          await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
-            method: "POST", headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ ...event, summary: `📍 ${event.summary}` }),
-          });
+          await calFetch(
+            "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+            { _token: tok, method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...event, summary: `📍 ${event.summary}` }) }
+          );
         }
       }
       showToast(addPersonal ? "Booked & saved to your calendar! 📅" : "Room booked!", "success");
       await fetchCalendarEvents(tok);
-    } catch {
-      showToast("Calendar sync failed.", "info");
+    } catch (err) {
+      showToast(`Booking failed: ${err.message}`, "info");
     }
   }
 
   function connectGCal() {
-    if (!tokenClientRef.current) { showToast("Google not ready yet, try again.", "info"); return; }
-    tokenClientRef.current.requestAccessToken();
+    if (!tokenClient.current) { showToast("Google not ready yet, try again.", "info"); return; }
+    tokenClient.current.requestAccessToken();
   }
 
   function signOut() {
-    setAccessToken(null); setUserEmail(null); setCalendarEvents([]);
+    setAccessToken(null); tokenRef.current = null;
+    setUserEmail(null); setCalendarEvents([]);
     deleteCookie("rb_email");
-    showToast("Signed out.", "info");
   }
 
-  // ── Bookings ────────────────────────────────────────────────────────────
-  function saveBookings(next) { setBookings(next); localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); }
-  function allBookings()      { return accessToken ? calendarEvents : bookings; }
-  function dayBookings(roomId){ return allBookings().filter(b => b.roomId === roomId && b.date === selectedDate); }
-  function showToast(msg, type = "success") { setToast({ msg, type }); setTimeout(() => setToast(null), 4000); }
+  // ── Booking helpers ──────────────────────────────────────────────────────
+  function dayBookings(roomId) {
+    return calendarEvents.filter(b => b.roomId === roomId && b.date === selectedDate);
+  }
+
+  function showToast(msg, type = "success") {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4000);
+  }
 
   function openBook(roomId, startOverride) {
-    if (!accessToken) { connectGCal(); return; }
     const start    = startOverride || "09:30";
     const startIdx = HOURS.findIndex(h => h.value === start);
     const end      = HOURS[Math.min(startIdx + 4, HOURS.length - 1)].value;
     setForm({ name: "", title: "", start, end, recurring: false, weeks: 4, addToPersonal: true });
-    setFormErr(""); setEditTarget(null); setModal({ roomId });
+    setFormErr(""); setSubmitting(false); setEditTarget(null); setModal({ roomId });
   }
 
   function openEdit(b) {
     setForm({ name: b.name, title: b.title, start: b.start, end: b.end, recurring: false, weeks: 4, addToPersonal: false });
-    setFormErr(""); setEditTarget(b); setModal({ roomId: b.roomId });
+    setFormErr(""); setSubmitting(false); setEditTarget(b); setModal({ roomId: b.roomId });
   }
 
   async function submitBooking() {
+    if (submitting) return; // block double-submit
     if (!form.name.trim())  return setFormErr("Please enter your name.");
     if (!form.title.trim()) return setFormErr("Please enter a meeting title.");
     if (timeToMin(form.end) <= timeToMin(form.start)) return setFormErr("End time must be after start time.");
 
     const dates   = form.recurring ? Array.from({ length: form.weeks }, (_, i) => addWeeks(selectedDate, i)) : [selectedDate];
-    const others  = allBookings().filter(b => !editTarget || b.id !== editTarget.id);
+    const others  = calendarEvents.filter(b => !editTarget || b.id !== editTarget.id);
     const clashes = dates.filter(date => others.some(b => b.roomId === modal.roomId && b.date === date && overlaps(b, form)));
     if (clashes.length > 0) return setFormErr(`Time slot taken on ${clashes.length === 1 ? clashes[0] : clashes.length + " dates"}. Choose a different time.`);
 
-    // Delete old event if editing
-    if (editTarget) {
-      if (editTarget.fromCalendar) {
-        try {
-          await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events/${editTarget.id}`, {
-            method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` },
-          });
-        } catch { showToast("Failed to update booking.", "info"); return; }
-      } else {
-        saveBookings(bookings.filter(b => b.id !== editTarget.id));
+    setSubmitting(true);
+
+    const recurringId = form.recurring ? `rec_${Date.now()}` : null;
+    const newBookings = dates.map((date, i) => ({
+      id: Date.now() + i, roomId: modal.roomId, date,
+      name: form.name.trim(), title: form.title.trim(),
+      start: form.start, end: form.end, recurringId,
+    }));
+
+    // For edits: CREATE the new event FIRST — if it fails, the old one is untouched
+    if (editTarget?.fromCalendar) {
+      const tok   = tokenRef.current;
+      const room  = ROOMS.find(r => r.id === modal.roomId);
+      const event = {
+        summary:     `${form.title.trim()} — ${room.name}`,
+        description: `Booked by ${form.name.trim()} via RoomBook`,
+        start: { dateTime: toGCalDateTime(selectedDate, form.start), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+        end:   { dateTime: toGCalDateTime(selectedDate, form.end),   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+      };
+      const createRes = await calFetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events`,
+        { _token: tok, method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(event) }
+      );
+      if (!createRes || !createRes.ok) {
+        showToast("Failed to update booking. Original is unchanged.", "info");
+        setSubmitting(false); return;
       }
+      // New event created successfully — now safe to delete the old one
+      await calFetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events/${editTarget.id}`,
+        { _token: tok, method: "DELETE" }
+      );
+      setModal(null); setEditTarget(null); setSubmitting(false);
+      showToast("Booking updated!");
+      await fetchCalendarEvents(tok);
+      return;
     }
 
-    const recurringId  = form.recurring ? `rec_${Date.now()}` : null;
-    const newBookings  = dates.map((date, i) => ({ id: Date.now() + i, roomId: modal.roomId, date, name: form.name, title: form.title, start: form.start, end: form.end, recurringId }));
-    if (!editTarget?.fromCalendar) saveBookings([...bookings.filter(b => !editTarget || b.id !== editTarget.id), ...newBookings]);
-
-    setModal(null); setEditTarget(null);
-    showToast(editTarget ? "Booking updated!" : (form.recurring ? `Booked ${form.weeks} weeks! 🔁` : "Room booked!"));
-    addToGCal(newBookings, accessToken, form.addToPersonal);
+    setModal(null); setEditTarget(null); setSubmitting(false);
+    showToast(form.recurring ? `Booked ${form.weeks} weeks! 🔁` : "Room booked!");
+    addToGCal(newBookings, tokenRef.current, form.addToPersonal);
   }
 
   function openCancel(b) { setCancelTarget(b); setCancelMode("single"); }
 
   async function cancelBooking() {
-    if (cancelTarget.fromCalendar) {
-      try {
-        await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events/${cancelTarget.id}`, {
-          method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        await fetchCalendarEvents();
-      } catch { showToast("Failed to delete.", "info"); }
-    } else {
-      const next = cancelMode === "all" && cancelTarget.recurringId
-        ? bookings.filter(b => b.recurringId !== cancelTarget.recurringId)
-        : bookings.filter(b => b.id !== cancelTarget.id);
-      saveBookings(next);
-    }
+    const res = await calFetch(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events/${cancelTarget.id}`,
+      { method: "DELETE" }
+    );
     setCancelTarget(null);
-    showToast("Booking deleted.", "info");
+    if (res === null) return; // 401 — handled by calFetch
+    if (res.ok || res.status === 204 || res.status === 404) {
+      showToast("Booking deleted.", "info");
+      await fetchCalendarEvents();
+    } else {
+      showToast("Failed to delete. Try again.", "info");
+    }
   }
 
   function isAvailableNow(roomId) {
@@ -306,12 +372,14 @@ function App() {
   }
 
   const room         = modal ? ROOMS.find(r => r.id === modal.roomId) : null;
-  const formConflict = modal ? allBookings().find(b => b.roomId === modal.roomId && b.date === selectedDate && overlaps(b, form) && (!editTarget || b.id !== editTarget.id)) : null;
-  const totalToday   = allBookings().filter(b => b.date === selectedDate).length;
+  const formConflict = modal
+    ? calendarEvents.find(b => b.roomId === modal.roomId && b.date === selectedDate && overlaps(b, form) && (!editTarget || b.id !== editTarget.id))
+    : null;
+  const totalToday   = calendarEvents.filter(b => b.date === selectedDate).length;
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
 
-  // Gate: show login wall if not authenticated
+  // Gate: nothing visible until signed in with a company account
   if (!accessToken) {
     return (
       <div style={{minHeight:"100vh",background:"#111827",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif",padding:24}}>
@@ -343,19 +411,14 @@ function App() {
           <span style={{color:"#fff",fontWeight:700,fontSize:18}}>RoomBook</span>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          {accessToken
-            ? <>
-                <span style={{color:"#4ade80",fontSize:12,fontWeight:600}}>
-                  {isMobile ? "📅 Connected" : `📅 ${userEmail}`}
-                </span>
-                {calLoading
-                  ? <span style={{color:"#9ca3af",fontSize:12}}>Syncing…</span>
-                  : <button onClick={() => fetchCalendarEvents()} style={{padding:"6px 10px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,background:"#1f2937",color:"#9ca3af"}} title="Refresh">🔄</button>
-                }
-                <button onClick={signOut} style={{padding:"6px 12px",borderRadius:8,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:"#374151",color:"#9ca3af"}}>Sign out</button>
-              </>
-            : <button onClick={connectGCal} style={{padding:"6px 14px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:"#4ade80",color:"#111827"}}>📅 Connect Google Calendar</button>
+          <span style={{color:"#4ade80",fontSize:12,fontWeight:600}}>
+            {isMobile ? "📅 Connected" : `📅 ${userEmail}`}
+          </span>
+          {calLoading
+            ? <span style={{color:"#9ca3af",fontSize:12}}>Syncing…</span>
+            : <button onClick={() => fetchCalendarEvents()} style={{padding:"6px 10px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,background:"#1f2937",color:"#9ca3af"}} title="Refresh">🔄</button>
           }
+          <button onClick={signOut} style={{padding:"6px 12px",borderRadius:8,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:"#374151",color:"#9ca3af"}}>Sign out</button>
           {!isMobile && ["grid","timeline"].map(v => (
             <button key={v} onClick={() => setView(v)} style={{padding:"6px 14px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:view===v?"#6366f1":"#1f2937",color:view===v?"#fff":"#9ca3af"}}>
               {v==="grid"?"🃏 Cards":"📅 Timeline"}
@@ -363,7 +426,6 @@ function App() {
           ))}
         </div>
       </div>
-
 
       {/* Date bar */}
       <div style={{background:"#fff",borderBottom:"1px solid #e5e7eb",padding:isMobile?"10px 16px":"14px 28px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
@@ -403,22 +465,19 @@ function App() {
                   <div style={{padding:"16px 22px"}}>
                     <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:8}}>SCHEDULE · 9:30 AM – 6:00 PM</div>
                     {bks.length === 0
-                        ? <div style={{color:"#9ca3af",fontSize:13,padding:"8px 0"}}>No bookings yet</div>
-                        : bks.map(b => (
-                            <div key={b.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#f9fafb",borderRadius:8,marginBottom:6,border:"1px solid #f3f4f6"}}>
-                              <div>
-                                <div style={{fontSize:13,fontWeight:600,color:"#111827",display:"flex",alignItems:"center",gap:5}}>
-                                  {b.title}
-                                  {b.recurringId && <span style={{fontSize:10,background:"#e0e7ff",color:"#6366f1",borderRadius:10,padding:"1px 6px"}}>🔁</span>}
-                                </div>
-                                <div style={{fontSize:12,color:"#9ca3af"}}>{b.name} · {b.start}–{b.end}</div>
-                              </div>
-                              <div style={{display:"flex",gap:4}}>
-                                <button onClick={() => openEdit(b)} style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,cursor:"pointer",color:"#3b82f6",fontSize:12,padding:"4px 8px",fontWeight:600}}>Edit</button>
-                                <button onClick={() => openCancel(b)} style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:6,cursor:"pointer",color:"#ef4444",fontSize:12,padding:"4px 8px",fontWeight:600}}>Delete</button>
-                              </div>
+                      ? <div style={{color:"#9ca3af",fontSize:13,padding:"8px 0"}}>No bookings yet</div>
+                      : bks.map(b => (
+                          <div key={b.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#f9fafb",borderRadius:8,marginBottom:6,border:"1px solid #f3f4f6"}}>
+                            <div>
+                              <div style={{fontSize:13,fontWeight:600,color:"#111827"}}>{b.title}</div>
+                              <div style={{fontSize:12,color:"#9ca3af"}}>{b.name} · {b.start}–{b.end}</div>
                             </div>
-                          ))
+                            <div style={{display:"flex",gap:4}}>
+                              <button onClick={() => openEdit(b)} style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,cursor:"pointer",color:"#3b82f6",fontSize:12,padding:"4px 8px",fontWeight:600}}>Edit</button>
+                              <button onClick={() => openCancel(b)} style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:6,cursor:"pointer",color:"#ef4444",fontSize:12,padding:"4px 8px",fontWeight:600}}>Delete</button>
+                            </div>
+                          </div>
+                        ))
                     }
                     <button onClick={() => openBook(r.id)} style={{width:"100%",marginTop:12,padding:"10px",background:r.color,color:"#fff",border:"none",borderRadius:10,fontWeight:600,fontSize:14,cursor:"pointer"}}>+ Book Room</button>
                   </div>
@@ -448,7 +507,7 @@ function App() {
                       {bk && (
                         <div style={{background:r.color,color:"#fff",borderRadius:6,padding:"3px 5px",fontSize:10,fontWeight:600,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                           <div>
-                            <div>{bk.title} {bk.recurringId && "🔁"}</div>
+                            <div>{bk.title}</div>
                             <div style={{opacity:0.8}}>{bk.name} · –{bk.end}</div>
                           </div>
                           <div style={{display:"flex",gap:2}}>
@@ -529,9 +588,13 @@ function App() {
               </div>
               {formErr && <div style={{color:"#ef4444",fontSize:13,marginBottom:12,background:"#fef2f2",padding:"8px 12px",borderRadius:8}}>⚠️ {formErr}</div>}
               <div style={{display:"flex",gap:10}}>
-                <button onClick={() => { setModal(null); setEditTarget(null); }} style={{flex:1,padding:"12px",border:"1.5px solid #e5e7eb",borderRadius:10,background:"#fff",fontWeight:600,fontSize:14,cursor:"pointer",color:"#374151"}}>Cancel</button>
-                <button onClick={submitBooking} style={{flex:2,padding:"12px",border:"none",borderRadius:10,background:room.color,color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer"}}>
-                  {editTarget ? "Save Changes" : form.recurring ? `Book ${form.weeks} Weeks 🔁` : "Confirm Booking"}
+                <button onClick={() => { setModal(null); setEditTarget(null); }} disabled={submitting}
+                  style={{flex:1,padding:"12px",border:"1.5px solid #e5e7eb",borderRadius:10,background:"#fff",fontWeight:600,fontSize:14,cursor:"pointer",color:"#374151"}}>
+                  Cancel
+                </button>
+                <button onClick={submitBooking} disabled={submitting}
+                  style={{flex:2,padding:"12px",border:"none",borderRadius:10,background:submitting?"#9ca3af":room.color,color:"#fff",fontWeight:700,fontSize:14,cursor:submitting?"not-allowed":"pointer",transition:"background 0.2s"}}>
+                  {submitting ? "Saving…" : editTarget ? "Save Changes" : form.recurring ? `Book ${form.weeks} Weeks 🔁` : "Confirm Booking"}
                 </button>
               </div>
             </div>
@@ -548,16 +611,6 @@ function App() {
             <div style={{color:"#6b7280",fontSize:14,marginBottom:20}}>
               <strong>{cancelTarget.title}</strong> by {cancelTarget.name}<br />{cancelTarget.start}–{cancelTarget.end}
             </div>
-            {cancelTarget.recurringId && (
-              <div style={{marginBottom:16,textAlign:"left"}}>
-                {[["single","Just this occurrence","#6366f1"],["all","All recurring bookings 🔁","#ef4444"]].map(([mode,label,color]) => (
-                  <label key={mode} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:8,border:`2px solid ${cancelMode===mode?color:"#e5e7eb"}`,marginBottom:8,cursor:"pointer"}}>
-                    <input type="radio" checked={cancelMode===mode} onChange={() => setCancelMode(mode)} />
-                    <span style={{fontSize:13,fontWeight:600,color:mode==="all"?"#ef4444":"inherit"}}>{label}</span>
-                  </label>
-                ))}
-              </div>
-            )}
             <div style={{display:"flex",gap:10}}>
               <button onClick={() => setCancelTarget(null)} style={{flex:1,padding:"11px",border:"1.5px solid #e5e7eb",borderRadius:10,fontWeight:600,cursor:"pointer",background:"#fff"}}>Keep</button>
               <button onClick={cancelBooking} style={{flex:1,padding:"11px",border:"none",borderRadius:10,fontWeight:700,cursor:"pointer",background:"#ef4444",color:"#fff"}}>Delete</button>
