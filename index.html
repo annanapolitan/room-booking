@@ -7,11 +7,16 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>* { margin: 0; padding: 0; box-sizing: border-box; } body { font-family: sans-serif; }</style>
 </head>
 <body>
   <div id="root"></div>
   <script type="text/babel">
+
+const CLIENT_ID = "491345627943-6d8s0f4k4c6hkhvqrks4v2lp1jvpfi7b.apps.googleusercontent.com";
+const SCOPES = "https://www.googleapis.com/auth/calendar.events";
+
 const ROOMS = [
   { id: "small-conf", name: "Small Conference", capacity: 4, amenities: ["TV", "Whiteboard", "Video Call"], color: "#6366f1", icon: "🪑" },
   { id: "large-conf", name: "Large Conference", capacity: 10, amenities: ["Projector", "Whiteboard", "Video Call", "Phone"], color: "#0ea5e9", icon: "🏛️" },
@@ -41,6 +46,10 @@ function addWeeks(dateStr, n) {
   return d.toISOString().split("T")[0];
 }
 
+function toGCalDateTime(date, time) {
+  return `${date}T${time}:00`;
+}
+
 const STORAGE_KEY = "room_bookings_v3";
 
 function App() {
@@ -55,6 +64,71 @@ function App() {
   const [toast, setToast] = React.useState(null);
   const [cancelTarget, setCancelTarget] = React.useState(null);
   const [cancelMode, setCancelMode] = React.useState("single");
+  const [accessToken, setAccessToken] = React.useState(null);
+  const [gcalStatus, setGcalStatus] = React.useState("idle"); // idle | loading | success | error
+  const tokenClientRef = React.useRef(null);
+  const pendingBookingsRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      if (window.google && window.google.accounts) {
+        tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
+          client_id: CLIENT_ID,
+          scope: SCOPES,
+          callback: (resp) => {
+            if (resp.access_token) {
+              setAccessToken(resp.access_token);
+              if (pendingBookingsRef.current) {
+                addToGCal(pendingBookingsRef.current, resp.access_token);
+                pendingBookingsRef.current = null;
+              }
+            }
+          },
+        });
+        clearInterval(interval);
+      }
+    }, 300);
+    return () => clearInterval(interval);
+  }, []);
+
+  async function addToGCal(bookingsList, token) {
+    setGcalStatus("loading");
+    const tok = token || accessToken;
+    try {
+      for (const b of bookingsList) {
+        const room = ROOMS.find(r => r.id === b.roomId);
+        await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            summary: `${b.title} — ${room.name}`,
+            description: `Booked by ${b.name} via RoomBook`,
+            start: { dateTime: toGCalDateTime(b.date, b.start), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+            end: { dateTime: toGCalDateTime(b.date, b.end), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+          }),
+        });
+      }
+      setGcalStatus("success");
+      showToast(`Added to Google Calendar! 📅`, "success");
+    } catch {
+      setGcalStatus("error");
+      showToast("Booking saved, but Google Calendar sync failed.", "info");
+    }
+    setTimeout(() => setGcalStatus("idle"), 3000);
+  }
+
+  function requestGCalAndAdd(bookingsList) {
+    if (!tokenClientRef.current) {
+      showToast("Google Calendar not ready yet, try again.", "info");
+      return;
+    }
+    if (accessToken) {
+      addToGCal(bookingsList, accessToken);
+    } else {
+      pendingBookingsRef.current = bookingsList;
+      tokenClientRef.current.requestAccessToken();
+    }
+  }
 
   function saveBookings(next) {
     setBookings(next);
@@ -67,14 +141,14 @@ function App() {
 
   function showToast(msg, type = "success") {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 4000);
   }
 
   function openBook(roomId, startOverride) {
     const start = startOverride || "09:30";
     const startIdx = HOURS.findIndex(h => h.value === start);
     const end = HOURS[Math.min(startIdx + 2, HOURS.length - 1)].value;
-    setForm({ name: "", title: "", start, end, recurring: false, weeks: 4 });
+    setForm({ name: "", title: "", start, end, recurring: false, weeks: 4, addToGCal: true });
     setFormErr("");
     setModal({ roomId });
   }
@@ -92,7 +166,8 @@ function App() {
     const newBookings = dates.map((date, i) => ({ id: Date.now() + i, roomId: modal.roomId, date, name: form.name, title: form.title, start: form.start, end: form.end, recurringId }));
     saveBookings([...bookings, ...newBookings]);
     setModal(null);
-    showToast(form.recurring ? `Booked ${form.weeks} weekly occurrences! 🔁` : "Room booked successfully!");
+    showToast(form.recurring ? `Booked ${form.weeks} weekly occurrences! 🔁` : "Room booked!");
+    if (form.addToGCal) requestGCalAndAdd(newBookings);
   }
 
   function openCancel(b) { setCancelTarget(b); setCancelMode("single"); }
@@ -122,7 +197,8 @@ function App() {
           <div style={{width:32,height:32,background:"#6366f1",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🏢</div>
           <span style={{color:"#fff",fontWeight:700,fontSize:18}}>RoomBook</span>
         </div>
-        <div style={{display:"flex",gap:8}}>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {accessToken && <span style={{color:"#4ade80",fontSize:12,fontWeight:600}}>📅 Google Calendar connected</span>}
           {["grid","timeline"].map(v => (
             <button key={v} onClick={() => setView(v)} style={{padding:"6px 14px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:view===v?"#6366f1":"#1f2937",color:view===v?"#fff":"#9ca3af"}}>
               {v==="grid"?"🃏 Cards":"📅 Timeline"}
@@ -250,7 +326,7 @@ function App() {
                   </div>
                 ))}
               </div>
-              <div style={{background:"#f9fafb",borderRadius:12,padding:"14px 16px",marginBottom:16,border:"1.5px solid #e5e7eb"}}>
+              <div style={{background:"#f9fafb",borderRadius:12,padding:"14px 16px",marginBottom:12,border:"1.5px solid #e5e7eb"}}>
                 <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
                   <input type="checkbox" checked={form.recurring} onChange={e => setForm(f => ({...f,recurring:e.target.checked}))} style={{width:16,height:16,cursor:"pointer"}} />
                   <span style={{fontWeight:600,fontSize:13,color:"#374151"}}>🔁 Repeat weekly</span>
@@ -265,6 +341,12 @@ function App() {
                     <div style={{fontSize:12,color:"#9ca3af",marginTop:6}}>Booking every week from {selectedDate} for {form.weeks} weeks</div>
                   </div>
                 )}
+              </div>
+              <div style={{background:"#f0fdf4",borderRadius:12,padding:"12px 16px",marginBottom:16,border:"1.5px solid #bbf7d0"}}>
+                <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
+                  <input type="checkbox" checked={form.addToGCal} onChange={e => setForm(f => ({...f,addToGCal:e.target.checked}))} style={{width:16,height:16,cursor:"pointer"}} />
+                  <span style={{fontWeight:600,fontSize:13,color:"#15803d"}}>📅 Add to my Google Calendar</span>
+                </label>
               </div>
               {formErr && <div style={{color:"#ef4444",fontSize:13,marginBottom:12,background:"#fef2f2",padding:"8px 12px",borderRadius:8}}>⚠️ {formErr}</div>}
               <div style={{display:"flex",gap:10}}>
