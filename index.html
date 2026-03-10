@@ -32,7 +32,7 @@ const HOURS = (() => {
       : h === 12 ? `12:${String(m).padStart(2,"0")} PM`
       : `${h-12}:${String(m).padStart(2,"0")} PM`;
     slots.push({ value: `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`, label });
-    m += 30; if (m === 60) { m = 0; h++; }
+    m += 15; if (m === 60) { m = 0; h++; }
   }
   return slots;
 })();
@@ -160,7 +160,7 @@ function App() {
   function openBook(roomId, startOverride) {
     const start = startOverride || "09:30";
     const startIdx = HOURS.findIndex(h => h.value === start);
-    const end = HOURS[Math.min(startIdx + 2, HOURS.length - 1)].value;
+    const end = HOURS[Math.min(startIdx + 4, HOURS.length - 1)].value;
     setForm({ name: "", title: "", start, end, recurring: false, weeks: 4, addToGCal: true });
     setFormErr("");
     setModal({ roomId });
