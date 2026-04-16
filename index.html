@@ -98,7 +98,8 @@ function App() {
   const [selectedDate,   setSelectedDate]   = React.useState(todayStr());
   const [modal,          setModal]          = React.useState(null);
   const [editTarget,     setEditTarget]     = React.useState(null);
-  const [form,           setForm]           = React.useState({ name: "", title: "", start: "09:30", end: "10:30", recurring: false, weeks: 4, addToPersonal: true });
+  const [form,           setForm]           = React.useState({ name: "", title: "", start: "09:30", end: "10:30", recurring: false, weeks: 4, addToPersonal: true, attendees: [] });
+  const [attendeeInput,  setAttendeeInput]  = React.useState("");
   const [formErr,        setFormErr]        = React.useState("");
   const [submitting,     setSubmitting]     = React.useState(false);  // prevents double-submit
   const [toast,          setToast]          = React.useState(null);
@@ -253,6 +254,7 @@ function App() {
           description: `Booked by ${b.name} via RoomBook`,
           start: { dateTime: toGCalDateTime(b.date, b.start), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
           end:   { dateTime: toGCalDateTime(b.date, b.end),   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+          ...(b.attendees?.length ? { attendees: b.attendees.map(e => ({ email: e })) } : {}),
         };
         // Add to shared room calendar (always)
         const sharedRes = await calFetch(
@@ -302,13 +304,21 @@ function App() {
     const start    = startOverride || "09:30";
     const startIdx = HOURS.findIndex(h => h.value === start);
     const end      = HOURS[Math.min(startIdx + 4, HOURS.length - 1)].value;
-    setForm({ name: userName, title: "", start, end, recurring: false, weeks: 4, addToPersonal: true });
-    setFormErr(""); setSubmitting(false); setEditTarget(null); setModal({ roomId });
+    setForm({ name: userName, title: "", start, end, recurring: false, weeks: 4, addToPersonal: true, attendees: [] });
+    setAttendeeInput(""); setFormErr(""); setSubmitting(false); setEditTarget(null); setModal({ roomId });
   }
 
   function openEdit(b) {
-    setForm({ name: b.name, title: b.title, start: b.start, end: b.end, recurring: false, weeks: 4, addToPersonal: false });
-    setFormErr(""); setSubmitting(false); setEditTarget(b); setModal({ roomId: b.roomId });
+    setForm({ name: b.name, title: b.title, start: b.start, end: b.end, recurring: false, weeks: 4, addToPersonal: false, attendees: b.attendees || [] });
+    setAttendeeInput(""); setFormErr(""); setSubmitting(false); setEditTarget(b); setModal({ roomId: b.roomId });
+  }
+
+  function addAttendee() {
+    const email = attendeeInput.trim().toLowerCase();
+    if (!email || !email.includes("@")) return;
+    if (form.attendees.includes(email)) { setAttendeeInput(""); return; }
+    setForm(f => ({ ...f, attendees: [...f.attendees, email] }));
+    setAttendeeInput("");
   }
 
   async function submitBooking() {
@@ -599,6 +609,26 @@ function App() {
                   )}
                 </div>
               )}
+              <div style={{marginBottom:16}}>
+                <label style={{display:"block",fontWeight:600,fontSize:13,color:"#374151",marginBottom:6}}>Invite Attendees</label>
+                <div style={{display:"flex",gap:8,marginBottom:8}}>
+                  <input type="email" placeholder="email@useintegral.com" value={attendeeInput}
+                    onChange={e => setAttendeeInput(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addAttendee())}
+                    style={{flex:1,border:"1.5px solid #e5e7eb",borderRadius:10,padding:"10px 14px",fontSize:14}} />
+                  <button type="button" onClick={addAttendee} style={{padding:"10px 16px",background:"#6366f1",color:"#fff",border:"none",borderRadius:10,fontWeight:600,fontSize:13,cursor:"pointer"}}>Add</button>
+                </div>
+                {form.attendees.length > 0 && (
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                    {form.attendees.map(a => (
+                      <span key={a} style={{display:"flex",alignItems:"center",gap:4,background:"#eef2ff",color:"#4338ca",borderRadius:20,padding:"4px 10px",fontSize:12,fontWeight:500}}>
+                        {a}
+                        <button onClick={() => setForm(f => ({...f,attendees:f.attendees.filter(x=>x!==a)}))} style={{background:"none",border:"none",cursor:"pointer",color:"#6366f1",fontSize:14,lineHeight:1,padding:0}}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div style={{background:"#f0fdf4",borderRadius:12,padding:"12px 16px",marginBottom:16,border:"1.5px solid #bbf7d0"}}>
                 <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
                   <input type="checkbox" checked={form.addToPersonal} onChange={e => setForm(f => ({...f,addToPersonal:e.target.checked}))} style={{width:16,height:16,cursor:"pointer"}} />
