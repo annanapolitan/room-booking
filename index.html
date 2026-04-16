@@ -106,6 +106,7 @@ function App() {
   const [cancelMode,     setCancelMode]     = React.useState("single");
   const [accessToken,    setAccessToken]    = React.useState(null);
   const [userEmail,      setUserEmail]      = React.useState(null);
+  const [userName,       setUserName]       = React.useState("");
   const [isMobile,       setIsMobile]       = React.useState(window.innerWidth < 640);
 
   const tokenRef     = React.useRef(null);  // mirrors accessToken for use inside async fns
@@ -142,15 +143,17 @@ function App() {
         callback: async (resp) => {
           if (!resp.access_token) return;
 
-          // Get user email — fall back to cookie if the network call fails
-          let email = "";
+          // Get user email + name — fall back to cookie if the network call fails
+          let email = "", name = "";
           try {
             const info = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
               headers: { Authorization: `Bearer ${resp.access_token}` },
             }).then(r => r.json());
             email = info.email || "";
+            name  = info.name  || "";
           } catch {}
           if (!email) email = getCookie("rb_email") || "";
+          if (name) setUserName(name);
 
           // Block non-company accounts (only if we successfully resolved an email)
           if (email && !email.endsWith(`@${ALLOWED_DOMAIN}`)) {
@@ -299,7 +302,7 @@ function App() {
     const start    = startOverride || "09:30";
     const startIdx = HOURS.findIndex(h => h.value === start);
     const end      = HOURS[Math.min(startIdx + 4, HOURS.length - 1)].value;
-    setForm({ name: "", title: "", start, end, recurring: false, weeks: 4, addToPersonal: true });
+    setForm({ name: userName, title: "", start, end, recurring: false, weeks: 4, addToPersonal: true });
     setFormErr(""); setSubmitting(false); setEditTarget(null); setModal({ roomId });
   }
 
